@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS Notes — a CS reference workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <a href="#content" class="skip-link">Skip to content</a>
+
+  <!-- Top navbar -->
+  <header class="navbar">
+    <div class="navbar-brand" id="navbarBrand">
+      <span class="brand-mark">&lt;/&gt;</span>
+      <span class="brand-name">CS<strong>Notes</strong></span>
+    </div>
+    <div class="navbar-search">
+      <input type="text" id="searchInput" placeholder="Search all sections, e.g. dynamic programming..." autocomplete="off">
+      <span class="navbar-search-icon">&#8981;</span>
+      <span class="navbar-search-kbd" id="searchKbd">Ctrl K</span>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <div class="navbar-stat" id="navbarStat"></div>
+    <button class="profile-chip" id="profileChipBtn" type="button"></button>
+    <button class="study-btn" id="studyModeBtn" type="button" title="Quiz or flashcard yourself">
+      <span class="study-btn-icon">&#9673;</span> Study
+    </button>
+    <div class="winctrl-group">
+      <button class="winctrl-btn" id="toggleSidebarBtn" type="button" title="Minimize sidebar" aria-label="Toggle sidebar">
+        <span class="winctrl-icon" id="sidebarBtnIcon">&#8722;</span>
+      </button>
+      <button class="winctrl-btn" id="toggleChromeBtn" type="button" title="Minimize toolbar" aria-label="Toggle toolbar">
+        <span class="winctrl-icon" id="chromeBtnIcon">&#8722;</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Section switcher -->
+  <nav class="sectionbar" id="sectionBar" aria-label="Sections"></nav>
+
+  <!-- Subfield quick-jump strip -->
+  <nav class="pillstrip" id="pillStrip" aria-label="Subfields"></nav>
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <span class="bc-root" id="bcHome">cs-notes</span>
+    <span class="bc-path" id="bcPath"></span>
+  </div>
+
+  <div class="layout">
+
+    <!-- Sidebar: directory tree -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-tree" id="sidebarTree"></div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="content" id="content" tabindex="-1">
+      <!-- populated by app.js -->
+    </main>
+
+  </div>
+
+  <!-- Study mode overlay: quiz + flashcards -->
+  <div class="study-overlay" id="studyOverlay" aria-hidden="true">
+    <div class="study-panel" id="studyPanel" role="dialog" aria-modal="true" aria-labelledby="studyTitle"></div>
+  </div>
+
+  <!-- Profile switcher overlay -->
+  <div class="study-overlay" id="profileOverlay" aria-hidden="true">
+    <div class="study-panel" id="profilePanel" role="dialog" aria-modal="true" aria-labelledby="profileTitle"></div>
+  </div>
+
+  <script src="data-reference.js"></script>
+  <script src="data-grade11.js"></script>
+  <script src="data-grade12.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
