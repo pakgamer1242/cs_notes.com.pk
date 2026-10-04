@@ -66,8 +66,12 @@ let saveTimer = null;
 
 function profileDataKey(id) { return `cs-notes-profile-${id}-v1`; }
 
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
 function generateProfileId() {
-  return "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  return "p_" + generateId();
 }
 
 function pickProfileColor() {
@@ -151,9 +155,15 @@ function performSave() {
       savedAt: Date.now(),
     }));
     flashSaveIndicator();
+    return true;
   } catch (e) {
-    storageAvailable = false;
-    console.warn("CS Notes: couldn't save to this browser's storage (it may be full or disabled).", e);
+    // Quota errors are recoverable (remove something, try again) — don't
+    // permanently disable saving for those. Anything else (storage blocked
+    // entirely, e.g. some private-browsing modes) isn't worth retrying.
+    const isQuotaError = e && (e.name === "QuotaExceededError" || e.code === 22 || e.name === "NS_ERROR_DOM_QUOTA_REACHED");
+    if (!isQuotaError) storageAvailable = false;
+    console.warn("CS Notes: couldn't save to this browser's storage.", e);
+    return false;
   }
 }
 
@@ -165,10 +175,9 @@ function saveToStorage() {
 }
 
 function flushPendingSave() {
-  if (!storageAvailable || saveTimer === null) return;
-  clearTimeout(saveTimer);
-  saveTimer = null;
-  performSave();
+  if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
+  if (!storageAvailable) return false;
+  return performSave();
 }
 
 function flashSaveIndicator() {
@@ -769,6 +778,229 @@ function goToRelatedTopic(sectionKey, dirSlug, topicSlug) {
   if (dir && topic) selectTopic(dir, topic);
 }
 
+/* ---------------------------------------------------------
+   Attachments — images (compressed client-side, stored as
+   data URLs) and video embeds (paste a YouTube/Vimeo link).
+   No file uploads to any server — everything stays local.
+--------------------------------------------------------- */
+
+function compressImageFile(file, maxDimension = 1100, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      reject(new Error("Please choose an image file."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round(height * (maxDimension / width));
+            width = maxDimension;
+          } else {
+            width = Math.round(width * (maxDimension / height));
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("Couldn't read that image file."));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function parseYouTubeId(url) {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/|youtube\.com\/shorts\/|m\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function parseVimeoId(url) {
+  const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return m ? m[1] : null;
+}
+
+async function handleImageFileSelected(file, key, dir, topic) {
+  let dataUrl;
+  try {
+    dataUrl = await compressImageFile(file);
+  } catch (err) {
+    alert(err.message || "Couldn't process that image.");
+    return;
+  }
+  if (!state.resources[key]) state.resources[key] = [];
+  const item = { type: "image", id: generateId(), dataUrl, name: file.name.replace(/\.[^./]+$/, ""), addedAt: Date.now() };
+  state.resources[key].push(item);
+
+  const saved = flushPendingSave();
+  if (!saved) {
+    state.resources[key].pop();
+    alert("Couldn't save that image — this browser's storage is full. Try removing an existing image first, or use a smaller photo.");
+    return;
+  }
+  renderTopic(dir, topic);
+  renderNavbarStat();
+}
+
+function addVideoAttachment(key, dir, topic) {
+  const input = document.getElementById("videoUrlInput");
+  const val = input.value.trim();
+  if (!val) return;
+
+  const ytId = parseYouTubeId(val);
+  const vimeoId = !ytId ? parseVimeoId(val) : null;
+  let item;
+  if (ytId) {
+    item = { type: "video", id: generateId(), url: val, embedUrl: `https://www.youtube.com/embed/${ytId}`, label: "YouTube video" };
+  } else if (vimeoId) {
+    item = { type: "video", id: generateId(), url: val, embedUrl: `https://player.vimeo.com/video/${vimeoId}`, label: "Vimeo video" };
+  } else {
+    item = { type: "video", id: generateId(), url: val, embedUrl: null, label: val };
+  }
+
+  if (!state.resources[key]) state.resources[key] = [];
+  state.resources[key].push(item);
+  input.value = "";
+  renderTopic(dir, topic);
+  renderNavbarStat();
+  saveToStorage();
+}
+
+function renderResourceItem(r, i) {
+  const type = r.type || "link"; // undefined type = old data saved before attachments existed
+
+  if (type === "image") {
+    return `
+      <li class="resource-item resource-item-image">
+        <button class="resource-thumb-btn" data-image-index="${i}" aria-label="View full image: ${escapeHtml(r.name || "image")}">
+          <img src="${r.dataUrl}" alt="" class="resource-thumb">
+        </button>
+        <span class="resource-item-name">${escapeHtml(r.name || "Image")}</span>
+        <button class="res-remove" data-index="${i}" aria-label="Remove image">&times;</button>
+      </li>
+    `;
+  }
+
+  if (type === "video") {
+    if (r.embedUrl) {
+      // Videos saved earlier used youtube-nocookie.com, which fails with
+      // "Error 153" when the site is opened as a local file. Repair on render.
+      const embedSrc = r.embedUrl.replace("youtube-nocookie.com/embed/", "youtube.com/embed/");
+      return `
+        <li class="resource-item resource-item-video">
+          <div class="resource-video-frame">
+            <iframe src="${embedSrc}" title="${escapeHtml(r.label || "Embedded video")}" loading="lazy" allowfullscreen></iframe>
+          </div>
+          <div class="resource-video-footer">
+            <span class="resource-item-name">${escapeHtml(r.label || "Video")}</span>
+            <button class="res-remove" data-index="${i}" aria-label="Remove video">&times;</button>
+          </div>
+        </li>
+      `;
+    }
+    return `
+      <li class="resource-item">
+        <span>&#9654; <a href="${r.url}" target="_blank" rel="noopener">${escapeHtml(r.label || r.url)}</a></span>
+        <button class="res-remove" data-index="${i}" aria-label="Remove video link">&times;</button>
+      </li>
+    `;
+  }
+
+  return `
+    <li class="resource-item">
+      <span>${r.url ? `<a href="${r.url}" target="_blank" rel="noopener">${escapeHtml(r.label)}</a>` : escapeHtml(r.label)}</span>
+      <button class="res-remove" data-index="${i}" aria-label="Remove resource">&times;</button>
+    </li>
+  `;
+}
+
+/* ---------------------------------------------------------
+   Image lightbox — full-size preview + remove, as an
+   accessible dialog matching the Study/Profile pattern.
+--------------------------------------------------------- */
+
+const imageOverlay = document.getElementById("imageOverlay");
+const imagePanel = document.getElementById("imagePanel");
+let lastFocusedBeforeImage = null;
+let currentLightboxContext = null;
+
+function trapImageFocus(e) {
+  if (e.key !== "Tab") return;
+  const focusable = getFocusableElements(imagePanel);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function openImageLightbox(key, dir, topic, index) {
+  const item = state.resources[key][index];
+  if (!item) return;
+  currentLightboxContext = { key, dir, topic, index };
+  lastFocusedBeforeImage = document.activeElement;
+
+  imagePanel.innerHTML = `
+    <div class="study-header">
+      <h2 class="study-title" id="imageLightboxTitle" tabindex="-1">${escapeHtml(item.name || "Image")}</h2>
+      <button class="study-close-btn" id="imageCloseBtn" aria-label="Close">&times;</button>
+    </div>
+    <img src="${item.dataUrl}" alt="${escapeHtml(item.name || "Attached image")}" class="lightbox-image">
+    <button class="study-secondary-btn lightbox-remove-btn" id="imageRemoveBtn">Remove this image</button>
+  `;
+
+  imageOverlay.classList.add("visible");
+  imageOverlay.setAttribute("aria-hidden", "false");
+  document.addEventListener("keydown", trapImageFocus);
+  const heading = document.getElementById("imageLightboxTitle");
+  if (heading) heading.focus();
+}
+
+function closeImageLightbox() {
+  imageOverlay.classList.remove("visible");
+  imageOverlay.setAttribute("aria-hidden", "true");
+  document.removeEventListener("keydown", trapImageFocus);
+  if (lastFocusedBeforeImage && typeof lastFocusedBeforeImage.focus === "function") {
+    lastFocusedBeforeImage.focus();
+  }
+  lastFocusedBeforeImage = null;
+  currentLightboxContext = null;
+}
+
+imageOverlay.addEventListener("click", e => {
+  if (e.target === imageOverlay) closeImageLightbox();
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && imageOverlay.classList.contains("visible")) closeImageLightbox();
+});
+
+imagePanel.addEventListener("click", e => {
+  if (e.target.closest("#imageCloseBtn")) { closeImageLightbox(); return; }
+  if (e.target.closest("#imageRemoveBtn")) {
+    const { key, dir, topic, index } = currentLightboxContext;
+    state.resources[key].splice(index, 1);
+    closeImageLightbox();
+    renderTopic(dir, topic);
+    renderNavbarStat();
+    saveToStorage();
+  }
+});
+
 function renderTopic(dir, topic) {
   const key = topicKey(dir.slug, topic.slug);
   const notesValue = state.notes[key] || "";
@@ -797,17 +1029,30 @@ function renderTopic(dir, topic) {
       <h2 class="section-label">your resources</h2>
       <ul class="resources-list" id="resourcesList">
         ${resources.length === 0 ? '<li class="empty-state" style="border:none;">no resources added yet</li>' :
-          resources.map((r, i) => `
-            <li>
-              <span>${r.url ? `<a href="${r.url}" target="_blank" rel="noopener">${r.label}</a>` : r.label}</span>
-              <button class="res-remove" data-index="${i}" aria-label="Remove resource">&times;</button>
-            </li>
-          `).join("")
+          resources.map((r, i) => renderResourceItem(r, i)).join("")
         }
       </ul>
-      <div class="add-resource-row">
+
+      <div class="attach-tabs" role="tablist" aria-label="Add a resource">
+        <button class="attach-tab active" data-attach-type="link" role="tab" aria-selected="true">Link</button>
+        <button class="attach-tab" data-attach-type="image" role="tab" aria-selected="false">Image</button>
+        <button class="attach-tab" data-attach-type="video" role="tab" aria-selected="false">Video</button>
+      </div>
+
+      <div class="attach-row" id="attachRowLink">
         <input type="text" id="resourceLabel" placeholder="Resource name or link...">
         <button id="addResourceBtn">Add</button>
+      </div>
+
+      <div class="attach-row" id="attachRowImage" style="display:none;">
+        <input type="file" id="imageFileInput" accept="image/*" class="visually-hidden">
+        <button id="chooseImageBtn" class="attach-choose-btn">Choose Image…</button>
+        <span class="attach-hint">auto-resized to save space</span>
+      </div>
+
+      <div class="attach-row" id="attachRowVideo" style="display:none;">
+        <input type="text" id="videoUrlInput" placeholder="Paste a YouTube or Vimeo link...">
+        <button id="addVideoBtn">Embed</button>
       </div>
 
       <div class="storage-note">
@@ -835,6 +1080,33 @@ function renderTopic(dir, topic) {
     if (e.key === "Enter") addResource(key, dir, topic);
   });
 
+  const attachTabs = contentEl.querySelectorAll(".attach-tab");
+  attachTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      attachTabs.forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
+      tab.classList.add("active");
+      tab.setAttribute("aria-selected", "true");
+      const type = tab.dataset.attachType;
+      contentEl.querySelectorAll(".attach-row").forEach(row => { row.style.display = "none"; });
+      const label = type.charAt(0).toUpperCase() + type.slice(1);
+      document.getElementById(`attachRow${label}`).style.display = "flex";
+    });
+  });
+
+  document.getElementById("chooseImageBtn").addEventListener("click", () => {
+    document.getElementById("imageFileInput").click();
+  });
+  document.getElementById("imageFileInput").addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (file) handleImageFileSelected(file, key, dir, topic);
+    e.target.value = "";
+  });
+
+  document.getElementById("addVideoBtn").addEventListener("click", () => addVideoAttachment(key, dir, topic));
+  document.getElementById("videoUrlInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") addVideoAttachment(key, dir, topic);
+  });
+
   contentEl.querySelectorAll(".res-remove").forEach(btn => {
     btn.addEventListener("click", () => {
       const idx = parseInt(btn.dataset.index, 10);
@@ -842,6 +1114,12 @@ function renderTopic(dir, topic) {
       renderTopic(dir, topic);
       renderNavbarStat();
       saveToStorage();
+    });
+  });
+
+  contentEl.querySelectorAll(".resource-thumb-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      openImageLightbox(key, dir, topic, parseInt(btn.dataset.imageIndex, 10));
     });
   });
 
