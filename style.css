@@ -56,6 +56,19 @@ body {
 }
 .fade-in { animation: fadeUp 0.28s var(--ease); }
 
+@keyframes optionPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+@keyframes optionShake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-5px); }
+  40%      { transform: translateX(5px); }
+  60%      { transform: translateX(-3px); }
+  80%      { transform: translateX(3px); }
+}
+
 button, input, textarea { font-family: inherit; }
 
 button:focus-visible, input:focus-visible, textarea:focus-visible {
@@ -96,8 +109,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 a { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
-  .fade-in { animation: none; }
-  * { transition: none !important; }
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* ---------- Glass panel base ---------- */
@@ -562,6 +577,16 @@ a { color: var(--accent); }
   border-top-color: var(--border-top);
   box-shadow: var(--glass-shadow);
   padding: 28px 30px 30px 30px;
+  /* Entrance/exit motion: the panel lifts and settles while the backdrop fades.
+     Exit is a touch quicker than entrance so closing feels responsive. */
+  opacity: 0;
+  transform: translateY(16px) scale(0.97);
+  transition: transform 0.18s var(--ease), opacity 0.16s var(--ease);
+}
+.study-overlay.visible .study-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: transform 0.32s var(--ease), opacity 0.24s var(--ease);
 }
 
 .study-header {
@@ -728,8 +753,8 @@ a { color: var(--accent); }
 }
 .study-option-btn:hover:not(.disabled) { border-color: var(--accent); background: rgba(255,255,255,0.1); transform: translateX(2px); }
 .study-option-btn.disabled { cursor: default; }
-.study-option-btn.correct { border-color: var(--accent); background: rgba(85,214,143,0.22); color: #fff; }
-.study-option-btn.incorrect { border-color: var(--accent-warm); background: rgba(240,180,91,0.18); color: #fff; }
+.study-option-btn.correct { border-color: var(--accent); background: rgba(85,214,143,0.22); color: #fff; animation: optionPop 0.38s var(--ease); }
+.study-option-btn.incorrect { border-color: var(--accent-warm); background: rgba(240,180,91,0.18); color: #fff; animation: optionShake 0.4s var(--ease); }
 
 .study-explanation {
   margin-top: 16px;
@@ -907,10 +932,28 @@ a { color: var(--accent); }
 
 /* ---------- Collapsed layout states ---------- */
 
-body.chrome-collapsed .sectionbar,
-body.chrome-collapsed .pillstrip,
-body.chrome-collapsed .breadcrumb {
-  display: none;
+/* The three toolbar bars collapse together. Same exact-height grid trick as the
+   sidebar accordion, so there's no guessing at pixel heights. */
+.chrome-stack {
+  display: grid;
+  grid-template-rows: 1fr;
+  flex-shrink: 0;
+  transition: grid-template-rows 0.26s var(--ease);
+}
+body.chrome-collapsed .chrome-stack { grid-template-rows: 0fr; }
+
+.chrome-stack-inner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 1;
+  transition: opacity 0.2s var(--ease), visibility 0s linear 0s;
+}
+/* Fade out while collapsing, then drop out of the tab order / a11y tree once
+   the collapse finishes (what display:none used to do). */
+body.chrome-collapsed .chrome-stack-inner {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s var(--ease), visibility 0s linear 0.26s;
 }
 
 .sidebar {
@@ -1106,13 +1149,31 @@ body.sidebar-collapsed .sidebar {
   flex-shrink: 0;
 }
 
+/* Smooth accordion: animate grid-template-rows 0fr -> 1fr, which lets the
+   browser animate to the content's natural height (plain height:auto can't
+   be transitioned). The inner wrapper must be able to shrink to zero. */
 .dir-items {
-  display: none;
+  display: grid;
+  grid-template-rows: 0fr;
   padding-left: 22px;
   border-left: 1px solid var(--border);
   margin-left: 21px;
+  transition: grid-template-rows 0.26s var(--ease);
 }
-.dir-group.open .dir-items { display: block; }
+.dir-group.open .dir-items { grid-template-rows: 1fr; }
+
+.dir-items-inner {
+  overflow: hidden;
+  min-height: 0;
+  /* Collapsed topics must leave the tab order and screen-reader tree, like
+     display:none did. Hide after the collapse finishes; show immediately on open. */
+  visibility: hidden;
+  transition: visibility 0s linear 0.26s;
+}
+.dir-group.open .dir-items-inner {
+  visibility: visible;
+  transition-delay: 0s;
+}
 
 .topic-item {
   display: block;
