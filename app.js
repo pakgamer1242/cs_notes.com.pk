@@ -285,6 +285,25 @@ function renderSectionBar() {
   });
 }
 
+// New view = start at the top. Without this, the content pane keeps the old
+// page's scroll offset and you land mid-page on the new topic.
+function resetContentScroll() {
+  contentEl.scrollTop = 0;
+}
+
+function focusMainHeading() {
+  const heading = document.getElementById("mainHeading");
+  if (heading) heading.focus({ preventScroll: true });
+}
+
+// Restart the fade-in animation on an element that's being (re)revealed.
+function replayFadeIn(el) {
+  if (!el) return;
+  el.classList.remove("fade-in");
+  void el.offsetWidth; // force reflow so the animation actually restarts
+  el.classList.add("fade-in");
+}
+
 function switchSection(key) {
   if (state.section === key) return;
   state.section = key;
@@ -298,8 +317,8 @@ function switchSection(key) {
   renderSidebar();
   renderNavbarStat();
   renderLanding();
-  const heading = document.getElementById("mainHeading");
-  if (heading) heading.focus();
+  resetContentScroll();
+  focusMainHeading();
 }
 
 /* ---------------------------------------------------------
@@ -317,8 +336,8 @@ function renderBreadcrumb(dir, topic) {
 
 function goToLanding() {
   renderLanding();
-  const heading = document.getElementById("mainHeading");
-  if (heading) heading.focus();
+  resetContentScroll();
+  focusMainHeading();
 }
 
 bcHome.addEventListener("click", goToLanding);
@@ -378,14 +397,21 @@ function renderSidebar() {
       <span class="dir-name">${dir.name}</span>
       ${dirNotesCount > 0 ? `<span class="dir-progress">${dirNotesCount}/${dir.topics.length}</span>` : ""}
     `;
+    // Toggle in place (no full rebuild) so the CSS height transition has an
+    // existing element to animate. A rebuild would create a fresh node already
+    // in its final state, and the browser would just snap.
     label.addEventListener("click", () => {
-      if (state.openDirs.has(dir.slug)) state.openDirs.delete(dir.slug);
-      else state.openDirs.add(dir.slug);
-      renderSidebar();
+      const nowOpen = !state.openDirs.has(dir.slug);
+      if (nowOpen) state.openDirs.add(dir.slug);
+      else state.openDirs.delete(dir.slug);
+      group.classList.toggle("open", nowOpen);
     });
 
     const items = document.createElement("div");
     items.className = "dir-items";
+    const itemsInner = document.createElement("div");
+    itemsInner.className = "dir-items-inner";
+    items.appendChild(itemsInner);
 
     matchingTopics.forEach(topic => {
       const key = topicKey(dir.slug, topic.slug);
@@ -395,7 +421,7 @@ function renderSidebar() {
       const hasNotes = !!(state.notes[key] && state.notes[key].trim());
       btn.innerHTML = `${hasNotes ? '<span class="has-notes-dot"></span>' : '<span class="no-notes-dot"></span>'}${topic.title}`;
       btn.addEventListener("click", () => selectTopic(dir, topic));
-      items.appendChild(btn);
+      itemsInner.appendChild(btn);
     });
 
     group.appendChild(label);
@@ -486,8 +512,8 @@ function selectTopic(dir, topic) {
   renderPillStrip();
   renderBreadcrumb(dir, topic);
   renderTopic(dir, topic);
-  const heading = document.getElementById("mainHeading");
-  if (heading) heading.focus();
+  resetContentScroll();
+  focusMainHeading();
 }
 
 function renderKeyPoints(points) {
@@ -1089,7 +1115,9 @@ function renderTopic(dir, topic) {
       const type = tab.dataset.attachType;
       contentEl.querySelectorAll(".attach-row").forEach(row => { row.style.display = "none"; });
       const label = type.charAt(0).toUpperCase() + type.slice(1);
-      document.getElementById(`attachRow${label}`).style.display = "flex";
+      const rowToShow = document.getElementById(`attachRow${label}`);
+      rowToShow.style.display = "flex";
+      replayFadeIn(rowToShow);
     });
   });
 
@@ -1582,7 +1610,10 @@ function selectQuizAnswer(idx) {
   const explanationEl = document.getElementById("studyExplanation");
   explanationEl.style.display = "block";
   explanationEl.innerHTML = `<strong>${correct ? "Correct." : "Not quite."}</strong> ${q.explanation}`;
-  document.getElementById("studyNextBtn").style.display = "inline-flex";
+  replayFadeIn(explanationEl);
+  const nextBtnEl = document.getElementById("studyNextBtn");
+  nextBtnEl.style.display = "inline-flex";
+  replayFadeIn(nextBtnEl);
 }
 
 function nextQuizQuestion() {
