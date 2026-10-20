@@ -15,6 +15,18 @@
    loaded before this file.
 --------------------------------------------------------- */
 
+// Short questions live in their own files (questions-grade11.js / -12.js),
+// keyed by topic slug, and are attached to the matching topics here.
+function attachShortQuestions(data, questionsBySlug) {
+  if (!questionsBySlug) return;
+  data.forEach(dir => dir.topics.forEach(topic => {
+    const qs = questionsBySlug[topic.slug];
+    if (Array.isArray(qs) && qs.length) topic.shortQuestions = qs;
+  }));
+}
+attachShortQuestions(GRADE11_DATA, typeof GRADE11_QUESTIONS !== "undefined" ? GRADE11_QUESTIONS : null);
+attachShortQuestions(GRADE12_DATA, typeof GRADE12_QUESTIONS !== "undefined" ? GRADE12_QUESTIONS : null);
+
 const SECTIONS = {
   reference: { key: "reference", label: "CS Reference", data: REFERENCE_DATA,
     groupWord: "subfield", eyebrow: "personal reference workspace",
@@ -536,6 +548,50 @@ function renderPitfalls(pitfalls) {
   `;
 }
 
+// Escape, then turn `backticked` text into inline code.
+function formatInline(text) {
+  return escapeHtml(String(text)).replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+function renderShortQuestions(items) {
+  if (!items || !items.length) return "";
+  return `
+    <h2 class="section-label">short questions</h2>
+    <div class="sq-toolbar">
+      <button class="sq-toggle-all" id="sqToggleAll" type="button">Show all answers</button>
+    </div>
+    <div class="sq-list" id="sqList">
+      ${items.map((item, i) => `
+        <details class="sq-item">
+          <summary class="sq-question">
+            <span class="sq-num">Q${i + 1}</span>
+            <span class="sq-text">${formatInline(item.q)}</span>
+          </summary>
+          <div class="sq-answer">${formatInline(item.a)}</div>
+        </details>
+      `).join("")}
+    </div>
+  `;
+}
+
+function wireShortQuestions() {
+  const list = document.getElementById("sqList");
+  const toggle = document.getElementById("sqToggleAll");
+  if (!list || !toggle) return;
+  const refreshLabel = () => {
+    const allOpen = [...list.querySelectorAll(".sq-item")].every(d => d.open);
+    toggle.textContent = allOpen ? "Hide all answers" : "Show all answers";
+  };
+  toggle.addEventListener("click", () => {
+    const items = [...list.querySelectorAll(".sq-item")];
+    const openThem = items.some(d => !d.open);
+    items.forEach(d => { d.open = openThem; });
+    refreshLabel();
+  });
+  // 'toggle' doesn't bubble, so listen in the capture phase.
+  list.addEventListener("toggle", refreshLabel, true);
+}
+
 function renderPractice(practice) {
   if (!practice) return "";
   return `
@@ -1046,6 +1102,7 @@ function renderTopic(dir, topic) {
       ${renderTable(topic.table)}
       ${renderPitfalls(topic.pitfalls)}
       ${renderPractice(topic.practice)}
+      ${renderShortQuestions(topic.shortQuestions)}
       ${renderRelatedTopics(dir, topic)}
 
       <h2 class="section-label">your notes</h2>
@@ -1091,6 +1148,7 @@ function renderTopic(dir, topic) {
   `;
 
   wireCopyButtons(contentEl);
+  wireShortQuestions();
 
   document.getElementById("notesArea").addEventListener("input", e => {
     state.notes[key] = e.target.value;
