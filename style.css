@@ -16,9 +16,9 @@
   --radius: 10px;
   --radius-sm: 7px;
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
-  --font-display: "IBM Plex Sans", -apple-system, sans-serif;
-  --font-body: "IBM Plex Sans", -apple-system, sans-serif;
-  --font-mono: "IBM Plex Mono", "SF Mono", monospace;
+  --font-display: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -35,6 +35,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(1100px 750px at 12% -8%, rgba(110,224,166,0.30), transparent 58%),
     radial-gradient(950px 680px at 92% 6%, rgba(48,168,118,0.28), transparent 55%),
@@ -78,7 +79,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 
 /* Headings that receive programmatic focus on navigation, so screen
    reader / keyboard users get a clear, visible landing point. */
-[tabindex="-1"]:focus {
+[tabindex="-1"]:focus { outline: none; }
+[tabindex="-1"]:focus-visible {
   outline: 2px solid var(--accent-warm);
   outline-offset: 4px;
   border-radius: 2px;
@@ -547,7 +549,10 @@ a { color: var(--accent); }
 
 .study-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 300;
   display: flex;
   align-items: center;
@@ -568,6 +573,7 @@ a { color: var(--accent); }
   width: 100%;
   max-width: 620px;
   max-height: 88vh;
+  max-height: 88dvh;
   overflow-y: auto;
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.05));
@@ -829,7 +835,10 @@ a { color: var(--accent); }
 
 .study-flashcard-front, .study-flashcard-back {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   border-radius: var(--radius);
@@ -1631,7 +1640,10 @@ body.sidebar-collapsed .sidebar {
 }
 .resource-video-frame iframe {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   border: none;
@@ -1859,15 +1871,11 @@ body.sidebar-collapsed .sidebar {
   .navbar-stat { display: none; }
   .navbar-search-kbd { display: none; }
   .navbar-search input { padding-right: 40px; }
-  .layout { flex-direction: column; }
-  .sidebar { width: 100%; max-height: 40vh; }
-  body.sidebar-collapsed .sidebar { width: 100%; max-height: 0; border-right: none; border-bottom-color: transparent; }
   .content-inner, .landing-section { padding: 24px 18px 60px 18px; }
   .landing-grid { grid-template-columns: 1fr; }
   .hero-checklist { grid-template-columns: 1fr; }
   .breadcrumb { padding: 8px 14px; }
-  .study-btn span:not(.study-btn-icon) { display: none; }
-  .study-panel { padding: 22px 18px 24px 18px; max-height: 92vh; }
+  .study-panel { padding: 22px 18px 24px 18px; max-height: 92vh; max-height: 92dvh; }
   .study-option-grid { grid-template-columns: 1fr 1fr; }
   .study-summary-actions { grid-template-columns: 1fr; }
   .study-flashcard { height: 340px; }
@@ -2251,4 +2259,134 @@ body.sidebar-collapsed .sidebar {
   }
   .fb-report-summary { flex-wrap: wrap; }
   .fb-report-date { order: 3; width: 100%; }
+}
+
+/* Browsers without aspect-ratio: keep the 16:9 video frame from collapsing to nothing */
+@supports not (aspect-ratio: 16 / 9) {
+  .resource-video-frame { height: 0; padding-top: 56.25%; }
+}
+
+/* Grid tracks default to min-content, so a long nowrap line stretched these
+   cards past the page edge. minmax(0, 1fr) lets them shrink and ellipsize. */
+.related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.related-card { min-width: 0; }
+
+/* ---------- Phone layout: the sidebar becomes a slide-in menu ---------- */
+
+:root { --navbar-h: 66px; }
+
+.drawer-scrim { display: none; }
+
+@media (max-width: 760px) {
+  .related-grid { grid-template-columns: minmax(0, 1fr); }
+
+  /* Keep the three section tabs; unit navigation lives in the menu instead */
+  .chrome-stack .pillstrip, .chrome-stack .breadcrumb { display: none; }
+  #toggleChromeBtn { display: none; }
+  .sectionbar { padding: 8px 14px; }
+  /* A toolbar minimized on a bigger screen must not hide the tabs here */
+  body.chrome-collapsed .chrome-stack { grid-template-rows: 1fr; }
+  body.chrome-collapsed .chrome-stack-inner { opacity: 1; visibility: visible; }
+
+  .sidebar,
+  body.sidebar-collapsed .sidebar {
+    position: fixed;
+    top: var(--navbar-h);
+    bottom: 0;
+    left: 0;
+    width: min(86vw, 340px);
+    max-height: none;
+    padding: 16px 12px 24px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    box-shadow: 8px 0 40px rgba(0,0,0,0.45);
+    z-index: 26;
+    transform: translateX(-105%);
+    visibility: hidden; /* closed menu items must not be reachable by Tab or screen readers */
+    transition: transform 0.26s var(--ease), visibility 0s linear 0.26s;
+  }
+  body.drawer-open .sidebar { transform: none; visibility: visible; transition-delay: 0s; }
+
+  .drawer-scrim {
+    display: block;
+    position: fixed;
+    top: var(--navbar-h);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 25;
+    background: rgba(2,10,6,0.6);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.26s var(--ease), visibility 0s linear 0.26s;
+  }
+  body.drawer-open .drawer-scrim { opacity: 1; visibility: visible; transition-delay: 0s; }
+
+  /* The sidebar button becomes a hamburger, drawn with CSS so no glyph is needed */
+  #sidebarBtnIcon { font-size: 0; display: block; position: relative; width: 16px; height: 2px; border-radius: 2px; background: currentColor; }
+  #sidebarBtnIcon::before, #sidebarBtnIcon::after { content: ""; position: absolute; left: 0; width: 16px; height: 2px; border-radius: 2px; background: currentColor; }
+  #sidebarBtnIcon::before { top: -5px; }
+  #sidebarBtnIcon::after { top: 5px; }
+
+  /* The narrow search box would give a 130px-wide results list; span the screen instead */
+  .search-results { position: fixed; top: calc(var(--navbar-h) + 4px); left: 10px; right: 10px; }
+
+  /* iOS Safari zooms the whole page when a field under 16px gets focus */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select { font-size: 16px !important; }
+}
+
+@media (max-width: 440px) {
+  .study-btn { padding: 8px 10px; }
+  .study-btn-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap;
+  }
+}
+
+/* Touch screens: bigger tap targets */
+@media (pointer: coarse) {
+  .winctrl-btn, .study-close-btn, .profile-icon-btn { min-width: 40px; min-height: 40px; }
+  .study-btn { min-height: 40px; }
+  .res-remove { padding: 8px 12px; }
+  .topic-item { padding-top: 11px; padding-bottom: 11px; }
+  .attach-tab, .fb-tab, .sq-toggle-all { min-height: 36px; }
+}
+
+
+/* ---------- Fallbacks for browsers without color-mix() ----------
+   A declaration containing var() isn't discarded at parse time, so it would
+   wipe out an earlier fallback line. This gated block overrides it instead. */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .search-result-item:hover, .search-result-item.active { background: rgba(255,255,255,0.10); }
+  .sr-glyph { background: rgba(255,255,255,0.10); }
+  .study-picker-card.active { background: var(--accent); }
+  .winctrl-btn:hover { background: rgba(85,214,143,0.25); }
+  .winctrl-btn.active-collapsed { background: var(--accent); }
+  .section-tab.active { background: var(--accent); }
+  .pill:hover { background: rgba(255,255,255,0.12); }
+  .pill.active { background: var(--pill-color, var(--accent)); }
+  .dir-glyph { background: rgba(255,255,255,0.10); }
+  .dir-glyph { border: 1px solid rgba(255,255,255,0.18); }
+  .topic-item.active { background: var(--accent); }
+  .landing-card:hover { box-shadow: 0 14px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.45); }
+  .attach-tab.active { background: var(--accent); }
+  .related-card:hover { box-shadow: 0 10px 22px rgba(0,0,0,0.32); }
+  .rc-glyph { background: rgba(255,255,255,0.10); }
+  .sq-item[open] { border-color: rgba(85,214,143,0.55); }
+  .fb-tab.active { background: var(--accent); }
+  .fb-type input:checked + label { background: var(--accent); }
+  .fb-success { border: 1px solid rgba(85,214,143,0.5); }
+  .fb-success-warn { border-color: rgba(240,180,91,0.55); }
+  .fb-report[open] { border-color: rgba(85,214,143,0.5); }
+  .fb-badge { background: rgba(255,255,255,0.10); }
+  .fb-badge { border: 1px solid rgba(255,255,255,0.25); }
+}
+
+/* Phones: make the three section tabs fit, and give the icon-only Study button a round shape */
+@media (max-width: 760px) {
+  .sectionbar { gap: 6px; }
+  .section-tab { padding: 8px 12px; font-size: 12.5px; }
+}
+@media (max-width: 440px) {
+  .study-btn { width: 40px; height: 40px; padding: 0; justify-content: center; }
 }

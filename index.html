@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A2016">
 <title>CS Notes — a CS reference workspace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,7 +29,7 @@
     <div class="navbar-stat" id="navbarStat"></div>
     <button class="profile-chip" id="profileChipBtn" type="button"></button>
     <button class="study-btn" id="studyModeBtn" type="button" title="Quiz or flashcard yourself">
-      <span class="study-btn-icon">&#9673;</span> Study
+      <span class="study-btn-icon">&#9673;</span><span class="study-btn-label">Study</span>
     </button>
     <div class="winctrl-group">
       <button class="winctrl-btn" id="toggleSidebarBtn" type="button" title="Minimize sidebar" aria-label="Toggle sidebar">
@@ -58,6 +59,9 @@
 
     </div>
   </div>
+
+  <!-- Phones: dims the page behind the open menu; tap it to close -->
+  <div class="drawer-scrim" id="drawerScrim"></div>
 
   <div class="layout">
 

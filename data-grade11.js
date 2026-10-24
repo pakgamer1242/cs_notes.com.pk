@@ -6,7 +6,7 @@
 
 const GRADE11_DATA = [
   {
-    slug: "unit1-computer-systems", name: "unit 1: computer systems", glyph: "⚙", color: "#3B6FA6",
+    slug: "unit1-computer-systems", name: "unit 1: computer systems", glyph: "⚙\uFE0E", color: "#3B6FA6",
     topics: [
       { slug: "data-representation", title: "Data Representation in a Digital Computer", tag: "core",
         desc: "How computers represent numbers, text, and other data using binary — the foundation everything else builds on.",
@@ -612,7 +612,7 @@ for group, priority in stakeholders.items():
     ],
   },
   {
-    slug: "unit6-impacts-of-computing", name: "unit 6: impacts of computing", glyph: "⚖", color: "#B5473E",
+    slug: "unit6-impacts-of-computing", name: "unit 6: impacts of computing", glyph: "⚖\uFE0E", color: "#B5473E",
     topics: [
       { slug: "information-sources", title: "Information & Information Sources", tag: "core",
         desc: "Where information comes from, and why the source matters as much as the content.",

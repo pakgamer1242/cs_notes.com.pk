@@ -233,10 +233,7 @@ function applyLayoutPrefs() {
   document.body.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
   document.body.classList.toggle("chrome-collapsed", state.chromeCollapsed);
 
-  sidebarBtnIcon.innerHTML = state.sidebarCollapsed ? "&#9634;" : "&#8722;";
-  toggleSidebarBtn.classList.toggle("active-collapsed", state.sidebarCollapsed);
-  toggleSidebarBtn.title = state.sidebarCollapsed ? "Restore sidebar" : "Minimize sidebar";
-  toggleSidebarBtn.setAttribute("aria-label", toggleSidebarBtn.title);
+  syncSidebarToggle();
 
   chromeBtnIcon.innerHTML = state.chromeCollapsed ? "&#9634;" : "&#8722;";
   toggleChromeBtn.classList.toggle("active-collapsed", state.chromeCollapsed);
@@ -244,11 +241,54 @@ function applyLayoutPrefs() {
   toggleChromeBtn.setAttribute("aria-label", toggleChromeBtn.title);
 }
 
+/* On phones the sidebar is a slide-in menu that always starts closed and is
+   never saved. On bigger screens it keeps the saved minimize/restore behaviour. */
+const mobileQuery = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 760px)") : null;
+const drawerScrim = document.getElementById("drawerScrim");
+
+function isMobileLayout() { return !!(mobileQuery && mobileQuery.matches); }
+
+function syncSidebarToggle() {
+  if (isMobileLayout()) {
+    const open = document.body.classList.contains("drawer-open");
+    toggleSidebarBtn.classList.toggle("active-collapsed", open);
+    toggleSidebarBtn.title = open ? "Close menu" : "Open menu";
+    toggleSidebarBtn.setAttribute("aria-expanded", String(open));
+  } else {
+    sidebarBtnIcon.innerHTML = state.sidebarCollapsed ? "&#9634;" : "&#8722;";
+    toggleSidebarBtn.classList.toggle("active-collapsed", state.sidebarCollapsed);
+    toggleSidebarBtn.title = state.sidebarCollapsed ? "Restore sidebar" : "Minimize sidebar";
+    toggleSidebarBtn.removeAttribute("aria-expanded");
+  }
+  toggleSidebarBtn.setAttribute("aria-label", toggleSidebarBtn.title);
+}
+
+function setDrawerOpen(open) {
+  document.body.classList.toggle("drawer-open", open);
+  syncSidebarToggle();
+}
+
 toggleSidebarBtn.addEventListener("click", () => {
+  if (isMobileLayout()) {
+    setDrawerOpen(!document.body.classList.contains("drawer-open"));
+    return;
+  }
   state.sidebarCollapsed = !state.sidebarCollapsed;
   applyLayoutPrefs();
   saveToStorage();
 });
+
+if (drawerScrim) drawerScrim.addEventListener("click", () => setDrawerOpen(false));
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.body.classList.contains("drawer-open")) setDrawerOpen(false);
+});
+
+if (mobileQuery) {
+  const onViewportChange = () => { document.body.classList.remove("drawer-open"); syncSidebarToggle(); };
+  if (mobileQuery.addEventListener) mobileQuery.addEventListener("change", onViewportChange);
+  else if (mobileQuery.addListener) mobileQuery.addListener(onViewportChange);
+}
 
 toggleChromeBtn.addEventListener("click", () => {
   state.chromeCollapsed = !state.chromeCollapsed;
@@ -301,6 +341,8 @@ function renderSectionBar() {
 // page's scroll offset and you land mid-page on the new topic.
 function resetContentScroll() {
   contentEl.scrollTop = 0;
+  // Moving to a new view also tucks the phone menu away.
+  if (document.body.classList.contains("drawer-open")) setDrawerOpen(false);
 }
 
 function focusMainHeading() {
@@ -480,7 +522,7 @@ function renderLanding() {
         </ul>
       </div>
       <div class="stat-card">
-        <div class="stat-headline"><span class="bolt">⚡</span><span class="num">${total}</span></div>
+        <div class="stat-headline"><span class="bolt">⚡&#xFE0E;</span><span class="num">${total}</span></div>
         <h3>Topics in your index</h3>
         <div class="stat-sub">Across ${DATA.length} ${groupWordPlural} of computer science.</div>
         <div class="stat-row">

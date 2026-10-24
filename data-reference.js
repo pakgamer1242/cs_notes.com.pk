@@ -1158,7 +1158,7 @@ location /api/ {
     ],
   },
   {
-    slug: "web-dev", name: "web-dev", glyph: "</>", color: "#2E9E5B",
+    slug: "web-dev", name: "web-dev", glyph: "&lt;/&gt;", color: "#2E9E5B",
     topics: [
       { slug: "html-semantics", title: "HTML & Semantic Markup", tag: "core",
         desc: "Structure and meaning, not appearance — the foundation every page is built on.",
@@ -1421,7 +1421,7 @@ fastlane deploy --rollout_percentage 100` },
     ],
   },
   {
-    slug: "cloud-devops", name: "cloud-devops", glyph: "☁", color: "#4776B0",
+    slug: "cloud-devops", name: "cloud-devops", glyph: "☁\uFE0E", color: "#4776B0",
     topics: [
       { slug: "cloud-service-models", title: "Cloud Service Models", tag: "core",
         desc: "IaaS, PaaS, and SaaS — how much infrastructure you manage vs. how much you don't.",

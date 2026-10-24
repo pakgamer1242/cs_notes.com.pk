@@ -467,7 +467,7 @@ print(anonymize({"name": "Bilal", "age": 34, "city": "Karachi"}))` },
     ],
   },
   {
-    slug: "unit6-impacts-of-computing", name: "unit 6: impacts of computing", glyph: "⚖", color: "#B5473E",
+    slug: "unit6-impacts-of-computing", name: "unit 6: impacts of computing", glyph: "⚖\uFE0E", color: "#B5473E",
     topics: [
       { slug: "privacy-identity-theft", title: "Privacy Risks & Identity Theft", tag: "core",
         desc: "How personal information gets misused, and the practical habits that reduce the risk.",
