@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Accounts: each signed-in person can read and write ONLY their own notes.
+    match /users/{uid}/topics/{topicId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['key', 'notes', 'resources', 'updatedAtMs', 'updatedAt'])
+        && request.resource.data.key is string
+        && request.resource.data.key.size() <= 300
+        && request.resource.data.notes is string
+        && request.resource.data.notes.size() <= 50000
+        && request.resource.data.resources is list
+        && request.resource.data.resources.size() <= 100
+        && request.resource.data.updatedAtMs is number
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // Complaint box (the sending code comes in the next step).
+    // Anyone may SEND one. Nobody can read, change or delete them from the
+    // website; you read them in the Firebase console (Firestore Database).
+    match /complaints/{complaintId} {
+      allow create: if request.resource.data.keys().hasOnly(['id', 'createdAt', 'type', 'description', 'contact', 'page', 'env', 'features'])
+        && request.resource.data.id is string
+        && request.resource.data.id.size() <= 40
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() <= 40
+        && request.resource.data.type is string
+        && request.resource.data.type.size() <= 40
+        && request.resource.data.description is string
+        && request.resource.data.description.size() > 0
+        && request.resource.data.description.size() <= 2000
+        && (request.resource.data.get('contact', '') is string)
+        && request.resource.data.get('contact', '').size() <= 200
+        && (request.resource.data.get('page', null) == null || request.resource.data.page is map)
+        && (request.resource.data.get('env', null) == null || request.resource.data.env is map)
+        && (request.resource.data.get('features', null) == null || request.resource.data.features is map);
+
+      allow read, update, delete: if false;
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

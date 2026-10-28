@@ -11,8 +11,8 @@
    not by hiding these.
 --------------------------------------------------------- */
 const CLOUD_CONFIG = {
-  apiKey: "AIzaSyAQZuh2wll86ihnwspgmAcYr_zy1413AZg",
-  authDomain: "cs-notes-1e12c.firebaseapp.com",
-  projectId: "cs-notes-1e12c",
-  appId: "1:932724001627:web:6ff37c095ab3127cef287e",
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  appId: "",
 };
