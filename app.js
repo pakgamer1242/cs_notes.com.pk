@@ -167,6 +167,7 @@ function performSave() {
       savedAt: Date.now(),
     }));
     flashSaveIndicator();
+    document.dispatchEvent(new CustomEvent("csn:saved"));
     return true;
   } catch (e) {
     // Quota errors are recoverable (remove something, try again) — don't
@@ -201,11 +202,13 @@ function flashSaveIndicator() {
 }
 
 function clearAllSavedData() {
-  const confirmed = confirm(`Delete all of ${getActiveProfile().name}'s saved notes and resources across every section? This can't be undone.`);
+  const onAccount = !!getActiveProfile().account;
+  const confirmed = confirm(`Delete all of ${getActiveProfile().name}'s saved notes and resources across every section?${onAccount ? " This also clears them from your account, so they disappear on your other devices too." : ""} This can't be undone.`);
   if (!confirmed) return;
   state.notes = {};
   state.resources = {};
   try { localStorage.removeItem(profileDataKey(activeProfileId)); } catch (e) { /* ignore */ }
+  document.dispatchEvent(new CustomEvent("csn:cleared"));
   renderSidebar();
   renderNavbarStat();
   if (state.activeTopic) {
@@ -1337,6 +1340,7 @@ function renderProfilePanel() {
       <h2 class="study-title" id="profileTitle" tabindex="-1">Switch Profile</h2>
       <button class="study-close-btn" id="profileCloseBtn" aria-label="Close">&times;</button>
     </div>
+    <div id="accountSlot" class="acct-slot"></div>
     <p class="profile-intro">Sharing this device? Each profile keeps its own notes, resources, and quiz progress — stored only in this browser.</p>
     <div class="profile-list">
       ${profiles.map(p => `
@@ -1358,6 +1362,7 @@ function renderProfilePanel() {
       <button id="addProfileBtn">Add Profile</button>
     </div>
   `;
+  document.dispatchEvent(new CustomEvent("csn:profile-panel"));
   const heading = document.getElementById("profileTitle");
   if (heading) heading.focus();
 }
