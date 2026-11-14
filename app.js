@@ -238,7 +238,6 @@ function applyLayoutPrefs() {
 
   syncSidebarToggle();
 
-  chromeBtnIcon.innerHTML = state.chromeCollapsed ? "&#9634;" : "&#8722;";
   toggleChromeBtn.classList.toggle("active-collapsed", state.chromeCollapsed);
   toggleChromeBtn.title = state.chromeCollapsed ? "Restore toolbar" : "Minimize toolbar";
   toggleChromeBtn.setAttribute("aria-label", toggleChromeBtn.title);
@@ -258,7 +257,6 @@ function syncSidebarToggle() {
     toggleSidebarBtn.title = open ? "Close menu" : "Open menu";
     toggleSidebarBtn.setAttribute("aria-expanded", String(open));
   } else {
-    sidebarBtnIcon.innerHTML = state.sidebarCollapsed ? "&#9634;" : "&#8722;";
     toggleSidebarBtn.classList.toggle("active-collapsed", state.sidebarCollapsed);
     toggleSidebarBtn.title = state.sidebarCollapsed ? "Restore sidebar" : "Minimize sidebar";
     toggleSidebarBtn.removeAttribute("aria-expanded");
@@ -388,7 +386,7 @@ function renderNavbarStat() {
 
 function renderBreadcrumb(dir, topic) {
   if (!dir) { bcPath.textContent = ""; return; }
-  bcPath.textContent = topic ? ` / ${dir.name} / ${topic.slug}` : ` / ${dir.name}`;
+  bcPath.textContent = topic ? ` / ${dir.name} / ${topic.title}` : ` / ${dir.name}`;
 }
 
 function goToLanding() {
@@ -445,8 +443,10 @@ function renderSidebar() {
     const isOpen = state.openDirs.has(dir.slug) || (filter && matchingTopics.length > 0);
     if (isOpen) group.classList.add("open");
 
-    const label = document.createElement("div");
+    const label = document.createElement("button");
+    label.type = "button";
     label.className = "dir-label";
+    label.setAttribute("aria-expanded", String(!!isOpen));
     label.style.setProperty("--dir-color", dir.color);
     label.innerHTML = `
       <span class="dir-caret">&#9656;</span>
@@ -462,6 +462,7 @@ function renderSidebar() {
       if (nowOpen) state.openDirs.add(dir.slug);
       else state.openDirs.delete(dir.slug);
       group.classList.toggle("open", nowOpen);
+      label.setAttribute("aria-expanded", String(nowOpen));
     });
 
     const items = document.createElement("div");
@@ -472,12 +473,12 @@ function renderSidebar() {
 
     matchingTopics.forEach(topic => {
       const key = topicKey(dir.slug, topic.slug);
-      const btn = document.createElement("button");
+      const btn = document.createElement("a");
       btn.className = "topic-item";
-      if (state.activeTopic === key) btn.classList.add("active");
+      btn.href = `#/${state.section}/${dir.slug}/${topic.slug}`;
+      if (state.activeTopic === key) { btn.classList.add("active"); btn.setAttribute("aria-current", "page"); }
       const hasNotes = !!(state.notes[key] && state.notes[key].trim());
       btn.innerHTML = `${hasNotes ? '<span class="has-notes-dot"></span>' : '<span class="no-notes-dot"></span>'}${topic.title}`;
-      btn.addEventListener("click", () => selectTopic(dir, topic));
       itemsInner.appendChild(btn);
     });
 
@@ -504,11 +505,11 @@ function renderLanding() {
   const groupWordPlural = meta.groupWord + "s";
 
   const grid = DATA.map(dir => `
-    <div class="landing-card" data-slug="${dir.slug}" style="--card-color:${dir.color}">
+    <a class="landing-card" href="#/${state.section}${dir.topics[0] ? `/${dir.slug}/${dir.topics[0].slug}` : ""}" data-slug="${dir.slug}" style="--card-color:${dir.color}">
       <div class="lc-glyph">${dir.glyph}</div>
       <div class="lc-title">${dir.name.replace(/-/g, " ")}</div>
       <div class="lc-count">${dir.topics.length} topics</div>
-    </div>
+    </a>
   `).join("");
 
   contentEl.innerHTML = `
@@ -547,15 +548,7 @@ function renderLanding() {
     </section>
   `;
 
-  contentEl.querySelectorAll(".landing-card").forEach(card => {
-    card.addEventListener("click", () => {
-      const slug = card.dataset.slug;
-      state.openDirs.add(slug);
-      renderSidebar();
-      const dir = DATA.find(d => d.slug === slug);
-      if (dir && dir.topics[0]) selectTopic(dir, dir.topics[0]);
-    });
-  });
+  // The cards are real links (#/section/unit/topic): navigation is handled by nav.js.
 }
 
 /* ---------------------------------------------------------
@@ -869,13 +862,13 @@ function renderRelatedTopics(dir, topic) {
     <h2 class="section-label">related topics</h2>
     <div class="related-grid">
       ${related.map(r => `
-        <button class="related-card" data-section="${r.sectionKey}" data-dir="${r.dirSlug}" data-topic="${r.topicSlug}" style="--rc-color:${r.dirColor}">
+        <a class="related-card" href="#/${r.sectionKey}/${r.dirSlug}/${r.topicSlug}" style="--rc-color:${r.dirColor}">
           <span class="rc-glyph">${r.dirGlyph}</span>
           <span class="rc-body">
             <span class="rc-title">${r.topicTitle}</span>
             <span class="rc-meta">${r.sectionLabel} · ${r.dirName}</span>
           </span>
-        </button>
+        </a>
       `).join("")}
     </div>
   `;
@@ -889,10 +882,10 @@ function renderUnitNav(dir, topic) {
   return `
     <div class="unit-nav">
       ${prev
-        ? `<button class="unit-nav-btn prev" data-nav-topic="${prev.slug}"><span class="unb-dir">&larr; Previous</span><span class="unb-title">${prev.title}</span></button>`
+        ? `<a class="unit-nav-btn prev" href="#/${state.section}/${dir.slug}/${prev.slug}"><span class="unb-dir">&larr; Previous</span><span class="unb-title">${prev.title}</span></a>`
         : `<div class="unit-nav-spacer"></div>`}
       ${next
-        ? `<button class="unit-nav-btn next" data-nav-topic="${next.slug}"><span class="unb-dir">Next &rarr;</span><span class="unb-title">${next.title}</span></button>`
+        ? `<a class="unit-nav-btn next" href="#/${state.section}/${dir.slug}/${next.slug}"><span class="unb-dir">Next &rarr;</span><span class="unb-title">${next.title}</span></a>`
         : `<div class="unit-nav-spacer"></div>`}
     </div>
   `;
@@ -1254,18 +1247,7 @@ function renderTopic(dir, topic) {
     });
   });
 
-  contentEl.querySelectorAll(".related-card").forEach(btn => {
-    btn.addEventListener("click", () => {
-      goToRelatedTopic(btn.dataset.section, btn.dataset.dir, btn.dataset.topic);
-    });
-  });
-
-  contentEl.querySelectorAll(".unit-nav-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const targetTopic = dir.topics.find(t => t.slug === btn.dataset.navTopic);
-      if (targetTopic) selectTopic(dir, targetTopic);
-    });
-  });
+  // Related topics and previous/next are real links: nav.js handles them.
 }
 
 function addResource(key, dir, topic) {

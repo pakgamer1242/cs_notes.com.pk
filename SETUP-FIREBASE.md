@@ -95,7 +95,7 @@ The complaint form is open to everyone, so someone could send junk. It already h
 
 Upload **all** of these to the same folder on GitHub (replace the old ones):
 
-`index.html`, `style.css`, `app.js`, `feedback.js`, `cloud.js`, `admin.js`, `cloud-config.js` (with your values), `data-reference.js`, `data-grade11.js`, `data-grade12.js`, `questions-grade11.js`, `questions-grade12.js`.
+`index.html`, `style.css`, `app.js`, `nav.js`, `feedback.js`, `cloud.js`, `admin.js`, `cloud-config.js` (with your values), `data-reference.js`, `data-grade11.js`, `data-grade12.js`, `questions-grade11.js`, `questions-grade12.js`.
 
 `SETUP-FIREBASE.md` and `firestore.rules` are for you: the site doesn't load them, but keep them in the repo if you like. The rules only take effect when you paste them into the Firebase console (step 5b).
 
