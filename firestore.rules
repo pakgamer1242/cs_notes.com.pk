@@ -3,7 +3,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Accounts: each signed-in person can read and write ONLY their own notes.
+    // ---------- Helpers ----------
+
+    // You become an admin by creating a document in the "admins" collection whose
+    // ID is your account's user ID (see SETUP-FIREBASE.md). Nobody can do that from the website.
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // What a visitor may send through the complaint box.
+    function validComplaint() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id', 'createdAt', 'type', 'description', 'contact', 'page', 'env', 'features', 'status', 'receivedAt'])
+        && d.id is string && d.id.size() > 0 && d.id.size() <= 40 && d.id.matches('^[A-Za-z0-9]+$')
+        && d.createdAt is string && d.createdAt.size() <= 40
+        && d.type in ['compatibility', 'display', 'content', 'suggestion', 'other']
+        && d.description is string && d.description.size() > 0 && d.description.size() <= 2000
+        && d.get('contact', '') is string && d.get('contact', '').size() <= 200
+        && d.status == 'new'
+        && d.receivedAt == request.time
+        && (d.get('page', null) == null || (d.page is map && d.page.size() <= 10))
+        && (d.get('env', null) == null || (d.env is map && d.env.size() <= 30))
+        && (d.get('features', null) == null || (d.features is map && d.features.size() <= 30));
+    }
+
+    // ---------- Accounts: each person reads and writes ONLY their own notes ----------
+
     match /users/{uid}/topics/{topicId} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
 
@@ -20,27 +46,28 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
-    // Complaint box (the sending code comes in the next step).
-    // Anyone may SEND one. Nobody can read, change or delete them from the
-    // website; you read them in the Firebase console (Firestore Database).
-    match /complaints/{complaintId} {
-      allow create: if request.resource.data.keys().hasOnly(['id', 'createdAt', 'type', 'description', 'contact', 'page', 'env', 'features'])
-        && request.resource.data.id is string
-        && request.resource.data.id.size() <= 40
-        && request.resource.data.createdAt is string
-        && request.resource.data.createdAt.size() <= 40
-        && request.resource.data.type is string
-        && request.resource.data.type.size() <= 40
-        && request.resource.data.description is string
-        && request.resource.data.description.size() > 0
-        && request.resource.data.description.size() <= 2000
-        && (request.resource.data.get('contact', '') is string)
-        && request.resource.data.get('contact', '').size() <= 200
-        && (request.resource.data.get('page', null) == null || request.resource.data.page is map)
-        && (request.resource.data.get('env', null) == null || request.resource.data.env is map)
-        && (request.resource.data.get('features', null) == null || request.resource.data.features is map);
+    // ---------- Admins list: you can only check whether YOU are on it ----------
 
-      allow read, update, delete: if false;
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // ---------- Complaint box ----------
+    // Anyone can SEND a complaint (once: a report can't be edited by the sender).
+    // Only admins can read, update the status/note, or delete.
+
+    match /complaints/{complaintId} {
+      allow create: if validComplaint() && complaintId == request.resource.data.id;
+
+      allow read, delete: if isAdmin();
+
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'adminNote', 'updatedAtMs'])
+        && request.resource.data.status in ['new', 'in-progress', 'resolved', 'dismissed']
+        && request.resource.data.get('adminNote', '') is string
+        && request.resource.data.get('adminNote', '').size() <= 2000
+        && request.resource.data.updatedAtMs is number;
     }
 
     // Everything else is closed.

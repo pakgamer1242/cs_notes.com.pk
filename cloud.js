@@ -215,6 +215,65 @@
         }
         await A.deleteUser(user);
       },
+
+      // ---- Complaint box ----
+
+      async sendComplaint(r) {
+        await load();
+        // Only these fields are sent: the security rules allow exactly these.
+        // The ID is chosen here, so sending the same report twice can never create a duplicate.
+        await F.setDoc(F.doc(db, "complaints", r.id), {
+          id: r.id,
+          createdAt: r.createdAt,
+          type: r.type,
+          description: r.description,
+          contact: r.contact || "",
+          page: r.page || null,
+          env: r.env || null,
+          features: r.features || null,
+          status: "new",
+          receivedAt: F.serverTimestamp(),
+        });
+      },
+
+      // ---- Admin (only works for accounts listed in the "admins" collection) ----
+
+      async isAdmin() {
+        await load();
+        if (!auth.currentUser) return false;
+        try {
+          const snap = await F.getDoc(F.doc(db, "admins", auth.currentUser.uid));
+          return snap.exists();
+        } catch (e) { return false; }
+      },
+
+      async adminList(max, afterMs) {
+        await load();
+        const parts = [F.collection(db, "complaints"), F.orderBy("receivedAt", "desc")];
+        if (afterMs) parts.push(F.startAfter(F.Timestamp.fromMillis(afterMs)));
+        parts.push(F.limit(max));
+        const snap = await F.getDocs(F.query.apply(null, parts));
+        return snap.docs.map(d => {
+          const x = d.data();
+          const out = Object.assign({}, x, { docId: d.id, receivedMs: x.receivedAt && typeof x.receivedAt.toMillis === "function" ? x.receivedAt.toMillis() : 0 });
+          delete out.receivedAt;
+          return out;
+        });
+      },
+
+      async adminUpdate(docId, patch) {
+        await load();
+        await F.updateDoc(F.doc(db, "complaints", docId), Object.assign({}, patch, { updatedAtMs: Date.now() }));
+      },
+
+      async adminDelete(docIds) {
+        await load();
+        for (let i = 0; i < docIds.length; i += 400) {
+          const batch = F.writeBatch(db);
+          docIds.slice(i, i + 400).forEach(id => batch.delete(F.doc(db, "complaints", id)));
+          await batch.commit();
+        }
+      },
     };
   }
 
@@ -231,6 +290,8 @@
   let loadError = "";       // set if the sign-in service couldn't load
   let meta = null;          // sync bookkeeping for the signed-in person
   let authChain = Promise.resolve();
+  let adminFlag = false;       // true when the signed-in person is listed as an admin
+  let cloudReadySent = false;
   const sync = { busy: false, again: false, error: "", offline: false, lastOkMs: 0, lastRunMs: 0, timer: null };
 
   const accountProfileId = uid => "acct_" + uid;
@@ -585,11 +646,13 @@
     closeAuth();
     setChipSync();
     runSync();
+    refreshAdmin();
   }
 
   function onSignedOut() {
     user = null;
     meta = null;
+    adminFlag = false;
     clearTimeout(sync.timer);
     sync.busy = false; sync.again = false; sync.error = ""; sync.offline = false; sync.lastOkMs = 0;
 
@@ -618,6 +681,7 @@
     }
     closeAuth();
     setChipSync();
+    document.dispatchEvent(new CustomEvent("csn:admin-changed"));
   }
 
   async function applyUser(u) {
@@ -640,6 +704,10 @@
       if (u) await applyUser(u); else onSignedOut();
     }
     refreshAccountUi();
+    if (!err && !cloudReadySent) {
+      cloudReadySent = true;
+      document.dispatchEvent(new CustomEvent("csn:cloud-ready"));
+    }
   }
 
   function startAuth() {
@@ -676,6 +744,7 @@
         ${verify}
         <p class="acct-sync" id="acctSyncLine" role="status" aria-live="polite">${esc(statusText())}</p>
         <div class="acct-actions">
+          ${adminFlag ? '<button type="button" class="fb-btn fb-btn-primary" data-acct="admin">Complaints panel</button>' : ""}
           <button type="button" class="fb-btn" data-acct="sync-now">Sync now</button>
           <button type="button" class="fb-btn" data-acct="sign-out">Sign out</button>
         </div>
@@ -719,6 +788,17 @@
     }
     const title = $("profileTitle");
     if (title) title.textContent = user ? "Your account" : "Switch Profile";
+  }
+
+  async function refreshAdmin() {
+    let isAdmin = false;
+    if (user && typeof adapter.isAdmin === "function") {
+      try { isAdmin = !!(await adapter.isAdmin()); } catch (e) { isAdmin = false; }
+    }
+    if (!user) isAdmin = false;
+    adminFlag = isAdmin;
+    refreshAccountUi();
+    document.dispatchEvent(new CustomEvent("csn:admin-changed"));
   }
 
   function refreshAccountUi() {
@@ -1001,6 +1081,28 @@
   /* =========================================================
      Start
   ========================================================= */
+
+  // What feedback.js (sending) and admin.js (the panel) are allowed to use.
+  window.CSNCloud = {
+    configured: true,
+    ready() { return authReady && !loadError; },
+    user() { return user; },
+    isAdmin() { return adminFlag; },
+    friendlyError: friendlyError,
+    sendComplaint(report) {
+      if (typeof adapter.sendComplaint !== "function") {
+        return Promise.reject(Object.assign(new Error("unsupported"), { code: "unavailable" }));
+      }
+      // Don't hand the write to the SDK while offline: it would sit in a hidden queue and could arrive twice.
+      if (navigator.onLine === false) return Promise.reject(Object.assign(new Error("offline"), { code: "csn/offline" }));
+      return withTimeout(adapter.sendComplaint(report), 20000);
+    },
+    admin: {
+      list(max, afterMs) { return adapter.adminList(max, afterMs); },
+      update(docId, patch) { return adapter.adminUpdate(docId, patch); },
+      remove(docIds) { return adapter.adminDelete(docIds); },
+    },
+  };
 
   document.addEventListener("csn:profile-panel", renderAccountSlot);
   document.addEventListener("csn:saved", onLocalSave);

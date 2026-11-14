@@ -55,7 +55,10 @@
   if (!btn || !overlay || !panel) return;
 
   const emptyDraft = () => ({ type: "", description: "", contact: "", include: true });
-  let ui = { view: "form", draft: emptyDraft(), lastReport: null, saveFailed: false };
+  let ui = { view: "form", draft: emptyDraft(), lastReport: null, saveFailed: false, sentOnline: false, sendFailed: false };
+  // When accounts are switched on (cloud.js), reports go straight to the site owner.
+  // Without that, this box behaves as before: reports are kept on the device.
+  const cloud = () => (window.CSNCloud && window.CSNCloud.configured ? window.CSNCloud : null);
   let lastFocused = null;
 
   /* ---------- Small helpers ---------- */
@@ -187,7 +190,7 @@
 
   function buildReport(draft) {
     return {
-      id: "R" + Date.now().toString(36).toUpperCase(),
+      id: "R" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(),
       createdAt: new Date().toISOString(),
       type: draft.type,
       description: draft.description,
@@ -268,6 +271,13 @@
 
   /* ---------- Rendering ---------- */
 
+  function savedTabHtml(formActive) {
+    const n = loadReports().length;
+    if (cloud() && n === 0 && formActive) return "";   // nothing is waiting to be sent
+    const label = (cloud() ? "Unsent (" : "Saved (") + n + ")";
+    return `<button class="fb-tab${formActive ? "" : " active"}" type="button" role="tab" aria-selected="${!formActive}" data-fb-view="history">${label}</button>`;
+  }
+
   function headerHtml(title) {
     const formActive = ui.view !== "history";
     return `
@@ -277,7 +287,7 @@
       </div>
       <div class="fb-tabs" role="tablist" aria-label="Complaint box">
         <button class="fb-tab${formActive ? " active" : ""}" type="button" role="tab" aria-selected="${formActive}" data-fb-view="form">New report</button>
-        <button class="fb-tab${formActive ? "" : " active"}" type="button" role="tab" aria-selected="${!formActive}" data-fb-view="history">Saved (${loadReports().length})</button>
+        ${savedTabHtml(formActive)}
       </div>
     `;
   }
@@ -299,7 +309,7 @@
     const page = getPageContext();
     return `
       ${headerHtml("Complaint box")}
-      <p class="fb-intro">Something broken, confusing or not working on your device or browser? Tell us what happened. Device details are attached by default, which makes compatibility problems much easier to fix.</p>
+      <p class="fb-intro">Something broken, confusing or not working on your device or browser? Tell us what happened. ${cloud() ? "Your report goes straight to the site owner. " : ""}Device details are attached by default, which makes compatibility problems much easier to fix.</p>
       <form id="fbForm" novalidate>
         <fieldset class="fb-fieldset">
           <legend class="fb-label">What kind of problem is it? <span class="fb-req">required</span></legend>
@@ -332,15 +342,60 @@
           ${detailsHtml(page, collectEnvironment(), detectFeatures())}
         </details>
 
+        <div class="fb-hp" aria-hidden="true"><label>Website <input type="text" id="fbWebsite" name="website" tabindex="-1" autocomplete="off"></label></div>
         <p class="fb-error" id="fbError" role="alert"></p>
-        <button type="submit" class="study-start-btn">Save report</button>
+        <button type="submit" class="study-start-btn" id="fbSubmit">${cloud() ? "Send report" : "Save report"}</button>
       </form>
-      <p class="fb-privacy">Nothing is sent anywhere automatically. Reports are saved in this browser, and you can copy or download them afterwards.</p>
+      <p class="fb-privacy">${cloud()
+        ? "Your report is sent to the site owner so they can fix the problem. It contains what you write and, if ticked, the page and device details above, but never your notes. Nothing is kept on this device once it's sent."
+        : "Nothing is sent anywhere automatically. Reports are saved in this browser, and you can copy or download them afterwards."}</p>
+    `;
+  }
+
+  function sentOnlineHtml() {
+    return `
+      ${headerHtml("Report sent")}
+      <div class="fb-success">
+        <span class="fb-success-icon" aria-hidden="true">✓</span>
+        <div>
+          <strong>Sent. Thank you!</strong>
+          <p>Your report went to the site owner. Nothing is kept on this device.</p>
+        </div>
+      </div>
+      <div class="fb-actions">
+        <button type="button" class="fb-btn" data-fb-act="new">Send another report</button>
+      </div>
+    `;
+  }
+
+  function sendFailedHtml() {
+    return `
+      ${headerHtml("Not sent yet")}
+      <div class="fb-success fb-success-warn">
+        <span class="fb-success-icon" aria-hidden="true">!</span>
+        <div>
+          <strong>Couldn't send it right now.</strong>
+          <p>${ui.saveFailed
+            ? "It also couldn't be kept on this device, so copy it now before closing this window."
+            : "It's kept on this device and will be sent automatically when you're back online."}</p>
+        </div>
+      </div>
+      <div class="fb-actions">
+        <button type="button" class="fb-btn fb-btn-primary" data-fb-act="retry-send">Try again now</button>
+        <button type="button" class="fb-btn" data-fb-act="copy">Copy report</button>
+        <button type="button" class="fb-btn" data-fb-act="download">Download (.txt)</button>
+      </div>
+      <p class="fb-notice" id="fbNotice" role="status" aria-live="polite"></p>
+      <div class="fb-actions">
+        <button type="button" class="fb-btn" data-fb-act="new">New report</button>
+      </div>
     `;
   }
 
   function sentHtml() {
     const r = ui.lastReport;
+    if (ui.sentOnline) return sentOnlineHtml();
+    if (ui.sendFailed) return sendFailedHtml();
     const mail = FEEDBACK_CONFIG.email
       ? `<a class="fb-btn" href="${escAttr(mailtoHref(r))}">Send by email</a>` : "";
     return `
@@ -393,8 +448,10 @@
   function historyHtml() {
     const list = loadReports();
     const body = list.length === 0
-      ? `<p class="fb-empty">No saved reports yet. Reports you submit are kept here, on this device.</p>`
-      : `<div class="fb-history-actions">
+      ? `<p class="fb-empty">${cloud() ? "Nothing is waiting to be sent." : "No saved reports yet. Reports you submit are kept here, on this device."}</p>`
+      : `${cloud() ? '<p class="fb-help">These reports couldn\'t be sent yet. They go out automatically once you\'re online.</p>' : ""}
+         <div class="fb-history-actions">
+           ${cloud() ? '<button type="button" class="fb-btn fb-btn-primary" data-fb-act="retry-send">Send now</button>' : ""}
            <button type="button" class="fb-btn" data-fb-act="export-all">Export all (.json)</button>
            <button type="button" class="fb-btn fb-btn-danger" data-fb-act="clear-all">Clear all</button>
          </div>
@@ -456,19 +513,82 @@
       return;
     }
 
+    const trap = form.querySelector("#fbWebsite");
+    if (trap && trap.value.trim()) {                 // a bot filled the hidden field: pretend it worked
+      ui.lastReport = buildReport({ type: typeEl.value, description, contact: "", include: false });
+      ui.draft = emptyDraft();
+      ui.sentOnline = true; ui.sendFailed = false;
+      ui.view = "sent";
+      render();
+      return;
+    }
+
     const report = buildReport({
       type: typeEl.value,
       description,
       contact: form.querySelector("#fbContact").value.trim(),
       include: form.querySelector("#fbInclude").checked,
     });
+    ui.lastReport = report;
+    ui.draft = emptyDraft();
+    ui.sentOnline = false; ui.sendFailed = false; ui.saveFailed = false;
+
+    if (cloud()) { sendOrQueue(report); return; }
+
     const list = loadReports();
     list.unshift(report);
     ui.saveFailed = !saveReports(list);
-    ui.lastReport = report;
-    ui.draft = emptyDraft();
     ui.view = "sent";
     render();
+  }
+
+  // Send to the site owner. Only if that fails is the report kept here (in the outbox) and retried.
+  async function sendOrQueue(report) {
+    const b = document.getElementById("fbSubmit");
+    if (b) { b.disabled = true; b.textContent = "Sending…"; }
+    try {
+      await cloud().sendComplaint(report);
+      ui.sentOnline = true;
+    } catch (e) {
+      // After a timeout we can't tell whether it arrived; remember that so a retry can't create a duplicate.
+      report.maybeSent = !!(e && e.code === "csn/timeout");
+      const list = loadReports();
+      list.unshift(report);
+      ui.saveFailed = !saveReports(list);
+      ui.sendFailed = true;
+      console.warn("[CS Notes] complaint not sent yet:", e);
+    }
+    ui.view = "sent";
+    render();
+  }
+
+  let flushing = false;
+  async function flushOutbox() {
+    const c = cloud();
+    if (!c || flushing || !c.ready() || navigator.onLine === false) return;
+    flushing = true;
+    try {
+      let list = loadReports();
+      const oldestFirst = list.slice().reverse();
+      for (let i = 0; i < oldestFirst.length; i++) {
+        const r = oldestFirst[i];
+        try {
+          await c.sendComplaint(r);
+        } catch (e) {
+          const alreadyThere = e && e.code === "permission-denied" && r.maybeSent;
+          if (!alreadyThere) {
+            if (e && e.code === "csn/timeout") r.maybeSent = true;
+            saveReports(list);
+            break;
+          }
+        }
+        list = list.filter(x => x.id !== r.id);
+        saveReports(list);
+      }
+    } finally {
+      flushing = false;
+      if (overlay.classList.contains("visible") && (ui.view === "history" || ui.view === "sent")) render();
+    }
   }
 
   function handleAction(el) {
@@ -477,7 +597,19 @@
     const reports = loadReports();
     const target = id ? reports.find(r => r.id === id) : ui.lastReport;
 
-    if (action === "new") { ui.view = "form"; render(); return; }
+    if (action === "new") { ui.view = "form"; ui.sentOnline = false; ui.sendFailed = false; render(); return; }
+    if (action === "retry-send") {
+      setNotice("Sending…");
+      flushOutbox().then(() => {
+        if (loadReports().length === 0) {
+          if (ui.view === "sent" && ui.sendFailed) { ui.sendFailed = false; ui.sentOnline = true; }
+          render();
+        } else {
+          setNotice("Still couldn't send. It will keep trying automatically.");
+        }
+      });
+      return;
+    }
     if (action === "history") { ui.view = "history"; render(); return; }
 
     if (action === "copy" && target) {
@@ -543,6 +675,8 @@
   function open() {
     lastFocused = document.activeElement;
     ui.view = "form";
+    ui.sentOnline = false;
+    ui.sendFailed = false;
     overlay.classList.add("visible");
     overlay.setAttribute("aria-hidden", "false");
     document.addEventListener("keydown", trapFocus);
@@ -557,6 +691,9 @@
     if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
     lastFocused = null;
   }
+
+  document.addEventListener("csn:cloud-ready", flushOutbox);
+  window.addEventListener("online", flushOutbox);
 
   btn.addEventListener("click", open);
 
