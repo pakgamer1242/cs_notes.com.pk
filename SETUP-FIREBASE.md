@@ -5,7 +5,7 @@ Until you finish, the site works exactly as before: notes are saved on each devi
 
 Firebase's screens change from time to time, so button names may differ slightly. The idea of each step stays the same.
 
-> **Already did the earlier setup (accounts only)?** You only need steps **5b** (publish the new rules) and **7** (make yourself an admin), then upload the files.
+> **Already did the earlier setup?** You only need to **publish the newest rules** (step 5b, needed for profile photos to sync) and upload the files. If you haven't yet, also do step **7** (make yourself an admin).
 
 ## 1. Create the project
 
@@ -47,11 +47,11 @@ If you skip this, sign-in fails with a message about the website's address not b
 
 **5b.** Open the **Rules** tab, delete what's there, paste the whole contents of **`firestore.rules`**, and click **Publish**. The editor underlines any mistakes before you publish.
 
-> **Important:** this version of the rules replaces the earlier one. If you published rules before, publish these again, otherwise complaints will be refused and stay "Not sent yet" on the visitor's device.
+> **Important:** this version of the rules replaces the earlier one. If you published rules before, publish these again. Without them, complaints are refused (they stay "Not sent yet" on the visitor's device) and profile photos stay on the device they were added on.
 
 What the rules do:
 
-- Each signed-in person can read and write **only their own** notes.
+- Each signed-in person can read and write **only their own** notes and **their own profile photo** (one small picture, size-limited and checked).
 - **Anyone** can *send* a complaint, once. They can't read, change or delete any complaint, including their own after sending.
 - Only an **admin** (step 7) can read complaints, change their status or note, and delete them.
 - Everything else is closed.
@@ -95,9 +95,15 @@ The complaint form is open to everyone, so someone could send junk. It already h
 
 Upload **all** of these to the same folder on GitHub (replace the old ones):
 
-`index.html`, `style.css`, `app.js`, `nav.js`, `feedback.js`, `cloud.js`, `admin.js`, `cloud-config.js` (with your values), `data-reference.js`, `data-grade11.js`, `data-grade12.js`, `questions-grade11.js`, `questions-grade12.js`.
+`index.html`, `style.css`, `app.js`, `nav.js`, `avatar.js`, `print.js`, `feedback.js`, `cloud.js`, `admin.js`, `cloud-config.js` (with your values), `data-reference.js`, `data-grade11.js`, `data-grade12.js`, `questions-grade11.js`, `questions-grade12.js`.
 
 `SETUP-FIREBASE.md` and `firestore.rules` are for you: the site doesn't load them, but keep them in the repo if you like. The rules only take effect when you paste them into the Firebase console (step 5b).
+
+## Profile photos, password and printing
+
+- **Profile photo:** open your profile (top right) and tap the camera. Choose or drop a picture, drag and zoom it into the round frame, and save. It is made small and square inside your browser. A guest profile keeps it on that device only; a signed-in account keeps it in the cloud, so it appears on your other devices too. Pictures that aren't small, plain JPEG/PNG/WebP are ignored.
+- **Change password:** signed-in accounts have a **Change password** button on the account card. It asks for the current password first. Guest profiles have no password.
+- **Printing:** the **Print** button on every topic (and the printer button in the toolbar) lets you print this topic, a whole unit, or topics you pick from any section, optionally with short-question answers and your own notes. Choose **Same as the screen** or **Paper-friendly**, and A4 or Letter. In the browser's print window choose **Save as PDF** to keep a file. Pressing Ctrl+P on a topic page prints that topic the same way. If colours are missing, turn on **Background graphics** in the print window; if the page edges stay white in your browser, use the Paper-friendly look.
 
 ## Good to know
 
@@ -120,5 +126,6 @@ Upload **all** of these to the same folder on GitHub (replace the old ones):
 | Complaints stay "Not sent yet" | Step 5b: publish the **new** rules (the older ones refuse these reports) |
 | No "Complaints panel" button | Step 7: the `admins` document ID must be exactly your User UID; sign out and back in after adding it |
 | Panel says the database rejected the request | You're signed in but not listed in `admins`, or the rules aren't published |
+| Photo says "saved on this device" but never syncs | Publish the newest `firestore.rules` (step 5b); older rules have no place for profile photos |
 | "Firebase settings … look wrong" | A value in `cloud-config.js` was copied incorrectly |
 | "Couldn't load the sign-in service" | No internet, or a network that blocks Google's servers |

@@ -1131,7 +1131,10 @@ function renderTopic(dir, topic) {
       <div class="topic-eyebrow" style="color:${dir.color}">${dir.glyph} ${dir.name}</div>
       <div class="topic-header">
         <h1 id="mainHeading" tabindex="-1">${topic.title}</h1>
-        <span class="topic-tag ${topic.tag}">${topic.tag}</span>
+        <span class="topic-header-actions">
+          <button type="button" class="topic-print-btn" data-print-open="topic" aria-haspopup="dialog" title="Print this topic, or choose several">${ICON_PRINT}<span>Print</span></button>
+          <span class="topic-tag ${topic.tag}">${topic.tag}</span>
+        </span>
       </div>
       <p class="topic-desc">${topic.desc}</p>
 
@@ -1272,12 +1275,42 @@ const profileOverlay = document.getElementById("profileOverlay");
 const profilePanel = document.getElementById("profilePanel");
 let lastFocusedBeforeProfile = null;
 
+/* Profile photos: small square pictures kept as data URLs. Anything that isn't
+   exactly that (and small) is ignored, so nothing odd can arrive from the cloud. */
+const AVATAR_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/;
+function validAvatar(s) { return typeof s === "string" && s.length > 0 && s.length <= 40000 && AVATAR_RE.test(s); }
+
+const ICON_PRINT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/></svg>';
+const ICON_CAMERA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.2l1.1-1.6A1 1 0 0 1 9.6 4h4.8a1 1 0 0 1 .8.4L16.3 6h1.2A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg>';
+
+// The round picture (or the first letter on the profile's colour) used in the navbar, the profile list and the account card.
+function avatarHtml(p, cls, inlineColor) {
+  if (p && validAvatar(p.avatar)) {
+    return `<span class="${cls} has-photo" style="background-image:url(${p.avatar})" aria-hidden="true"></span>`;
+  }
+  const initial = escapeHtml(String((p && p.name) || "?").charAt(0).toUpperCase());
+  return `<span class="${cls}"${inlineColor && p ? ` style="background:${p.color}"` : ""} aria-hidden="true">${initial}</span>`;
+}
+
+// Opens the photo dialog (avatar.js). Must be called straight from a click so the file chooser is allowed.
+async function changeProfilePhoto(id) {
+  const p = profiles.find(pr => pr.id === id);
+  if (!p || !window.CSNAvatar) return;
+  const result = await window.CSNAvatar.pick({ current: validAvatar(p.avatar) ? p.avatar : "", name: p.name, synced: !!p.account });
+  if (result === null) return;                       // cancelled
+  if (result === "") delete p.avatar; else p.avatar = result;   // "" means remove
+  saveProfilesList();
+  renderProfileChip();
+  if (profileOverlay.classList.contains("visible")) renderProfilePanel();
+  document.dispatchEvent(new CustomEvent("csn:avatar-changed", { detail: { profileId: id } }));
+}
+
 function renderProfileChip() {
   const p = getActiveProfile();
   if (!profileChipBtn || !p) return;
   profileChipBtn.innerHTML = `
-    <span class="profile-chip-avatar" style="background:${p.color}">${p.name.charAt(0).toUpperCase()}</span>
-    <span class="profile-chip-name">${p.name}</span>
+    ${avatarHtml(p, "profile-chip-avatar", true)}
+    <span class="profile-chip-name">${escapeHtml(p.name)}</span>
   `;
   profileChipBtn.title = `Switch profile (currently ${p.name})`;
   profileChipBtn.setAttribute("aria-label", profileChipBtn.title);
@@ -1328,13 +1361,14 @@ function renderProfilePanel() {
       ${profiles.map(p => `
         <div class="profile-card${p.id === activeProfileId ? " active" : ""}">
           <button class="profile-select-btn" data-select-profile="${p.id}" style="--pc-color:${p.color}">
-            <span class="profile-avatar">${p.name.charAt(0).toUpperCase()}</span>
-            <span class="profile-name">${p.name}</span>
+            ${avatarHtml(p, "profile-avatar", false)}
+            <span class="profile-name">${escapeHtml(p.name)}</span>
             ${p.id === activeProfileId ? '<span class="profile-active-badge">Active</span>' : ""}
           </button>
           <div class="profile-card-actions">
-            <button class="profile-icon-btn" data-rename-profile="${p.id}" aria-label="Rename ${p.name}" title="Rename">&#9998;</button>
-            <button class="profile-icon-btn" data-delete-profile="${p.id}" aria-label="Delete ${p.name}" title="Delete"${profiles.length <= 1 ? " disabled" : ""}>&times;</button>
+            <button class="profile-icon-btn" data-photo-profile="${p.id}" aria-label="Change photo for ${escapeHtml(p.name).replace(/"/g, "&quot;")}" title="Change photo">${ICON_CAMERA}</button>
+            <button class="profile-icon-btn" data-rename-profile="${p.id}" aria-label="Rename ${escapeHtml(p.name).replace(/"/g, "&quot;")}" title="Rename">&#9998;</button>
+            <button class="profile-icon-btn" data-delete-profile="${p.id}" aria-label="Delete ${escapeHtml(p.name).replace(/"/g, "&quot;")}" title="Delete"${profiles.length <= 1 ? " disabled" : ""}>&times;</button>
           </div>
         </div>
       `).join("")}
@@ -1428,6 +1462,9 @@ profilePanel.addEventListener("click", e => {
 
   const selectBtn = e.target.closest("[data-select-profile]");
   if (selectBtn) { switchProfile(selectBtn.dataset.selectProfile); return; }
+
+  const photoBtn = e.target.closest("[data-photo-profile]");
+  if (photoBtn) { changeProfilePhoto(photoBtn.dataset.photoProfile); return; }
 
   const renameBtn = e.target.closest("[data-rename-profile]");
   if (renameBtn) { renameProfile(renameBtn.dataset.renameProfile); return; }

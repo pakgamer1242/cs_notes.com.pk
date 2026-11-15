@@ -7,7 +7,9 @@
 <title>CS Notes — a CS reference workspace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Fonts load without holding the page back: if a network blocks or slows Google Fonts, the site still starts at once and uses system fonts until they arrive. -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="boot">
@@ -30,6 +32,9 @@
     <button class="profile-chip" id="profileChipBtn" type="button"></button>
     <button class="study-btn" id="studyModeBtn" type="button" title="Quiz or flashcard yourself">
       <span class="study-btn-icon">&#9673;</span><span class="study-btn-label">Study</span>
+    </button>
+    <button class="winctrl-btn print-nav-btn" id="printNavBtn" type="button" data-print-open="any" aria-haspopup="dialog" title="Print notes" aria-label="Print notes">
+      <span class="winctrl-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/></svg></span>
     </button>
     <div class="winctrl-group">
       <button class="winctrl-btn" id="toggleSidebarBtn" type="button" title="Minimize sidebar" aria-label="Toggle sidebar">
@@ -114,6 +119,8 @@
   <script src="questions-grade12.js"></script>
   <script src="app.js"></script>
   <script src="nav.js"></script>
+  <script src="avatar.js"></script>
+  <script src="print.js"></script>
   <script src="feedback.js"></script>
   <script src="cloud-config.js"></script>
   <script src="cloud.js"></script>

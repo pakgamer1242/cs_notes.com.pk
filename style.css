@@ -2745,3 +2745,185 @@ body.boot .fb-fab       { animation: popIn 520ms var(--ease-spring) 800ms backwa
   }
   .study-panel { -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%); }
 }
+
+
+/* =========================================================
+   Profile photos + password change
+   ========================================================= */
+
+.has-photo { background-size: cover; background-position: center; background-repeat: no-repeat; color: transparent; }
+.profile-icon-btn svg, .acct-avatar-edit svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.acct-head .acct-avatar { width: 52px; height: 52px; font-size: 20px; }
+.acct-avatar-btn { position: relative; flex-shrink: 0; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; line-height: 0; transition: transform 0.25s var(--ease-out); }
+.acct-avatar-btn:hover { transform: scale(1.05); }
+.acct-avatar-btn:active { transform: scale(0.96); }
+.acct-avatar-edit {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--accent); color: #06210F;
+  border: 2px solid rgba(10, 32, 22, 0.95);
+}
+.acct-avatar-edit svg { width: 12px; height: 12px; }
+
+/* Photo dialog */
+.avatar-panel { max-width: 440px; }
+.avatar-panel.dragging { outline: 2px dashed var(--accent); outline-offset: -8px; }
+.av-choose { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+.av-choose .fb-intro { margin: 0 0 4px 0; }
+.av-big { width: 116px; height: 116px; border-radius: 50%; margin: 6px 0 10px 0; border: 2px solid var(--border-top); box-shadow: var(--glass-shadow-sm); }
+.av-initial { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #06210F; font-family: var(--font-display); font-weight: 800; font-size: 46px; }
+.av-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+.av-crop { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.av-stage {
+  position: relative;
+  width: min(280px, 72vw); height: min(280px, 72vw);
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--border);
+  background: #0c2218;
+  touch-action: none; cursor: grab;
+}
+.av-stage:active { cursor: grabbing; }
+.av-stage canvas { display: block; width: 100%; height: 100%; }
+.av-mask { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; background: radial-gradient(circle closest-side at 50% 50%, transparent calc(100% - 1px), rgba(7, 22, 14, 0.7) 100%); }
+.av-mask::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6); }
+.av-zoom { display: flex; align-items: center; gap: 10px; width: min(280px, 72vw); font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.av-zoom input { flex: 1; accent-color: var(--accent); }
+.av-previews { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-tertiary); }
+.av-previews canvas { border-radius: 50%; }
+
+/* Password dialog */
+.acct-meter { height: 6px; margin-top: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.acct-meter i { display: block; width: 0; height: 100%; border-radius: inherit; background: #B5473E; transition: width 0.3s var(--ease-out), background-color 0.3s var(--ease); }
+.acct-meter[data-level="2"] i { background: #C98A2E; }
+.acct-meter[data-level="3"] i { background: #7BC96F; }
+.acct-meter[data-level="4"] i { background: var(--accent); }
+.acct-showpw { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px 0; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.acct-showpw input { accent-color: var(--accent); }
+
+/* =========================================================
+   Printing: the button, the dialog, and the print stylesheet
+   ========================================================= */
+
+.topic-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.topic-print-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.2s var(--ease), transform 0.2s var(--ease-out);
+}
+.topic-print-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.topic-print-btn:hover { color: #fff; border-color: var(--accent); background: var(--accent-soft); }
+.topic-print-btn:active { transform: scale(0.96); }
+.print-nav-btn { margin-right: 2px; }
+
+.print-panel { max-width: 560px; }
+.pr-group { min-width: 0; margin: 0 0 16px 0; padding: 0; border: 0; }
+.pr-group legend { padding: 0; margin-bottom: 6px; }
+.pr-radio, .pr-check { display: flex; align-items: flex-start; gap: 9px; padding: 6px 2px; font-size: 14px; color: var(--text-primary); cursor: pointer; }
+.pr-radio em { font-style: normal; color: var(--accent); }
+.pr-radio.disabled { opacity: 0.45; cursor: default; }
+.pr-radio input, .pr-check input { margin-top: 3px; accent-color: var(--accent); }
+.pr-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.pr-row .study-select { margin-bottom: 6px; }
+.pr-pick { margin: 6px 0 4px 26px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: rgba(0,0,0,0.18); }
+.pr-pick-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.pr-pick-head .fb-label { margin: 0; }
+.pr-pick-head .study-select { flex: 1; width: auto; }
+.pr-units { max-height: 240px; overflow: auto; }
+.pr-unit summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 4px; cursor: pointer; list-style: none; }
+.pr-unit summary::-webkit-details-marker { display: none; }
+.pr-unit-all { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; text-transform: capitalize; cursor: pointer; }
+.pr-unit-all input, .pr-topic input { accent-color: var(--accent); }
+.pr-unit-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+.pr-topics { display: flex; flex-direction: column; padding: 0 0 6px 26px; }
+.pr-topic { display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.pr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+.pr-actions .study-start-btn { width: auto; flex: 0 0 auto; padding-left: 22px; padding-right: 22px; }
+
+@media (max-width: 760px) { .print-nav-btn { display: none; } }
+@media (max-width: 520px) {
+  .pr-row { grid-template-columns: 1fr; }
+  .topic-print-btn span { display: none; }
+  .topic-print-btn { padding: 6px 8px; }
+  .pr-pick { margin-left: 0; }
+}
+
+/* The print area is invisible on screen: it only exists while printing */
+.print-area { display: none; }
+
+@page { margin: 12mm; }
+@page { @bottom-center { content: counter(page); font-family: "IBM Plex Mono", monospace; font-size: 8pt; color: #7a8c82; } }
+
+@media print {
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { height: auto !important; overflow: visible !important; background: #0A2016 !important; background-image: none !important; }
+
+  /* Printing without the dialog (Ctrl+P on the landing page): just the page, without the controls */
+  .navbar, .chrome-stack, .sidebar, .fb-fab, .to-top, .read-progress, .drawer-scrim, .study-overlay, .skip-link { display: none !important; }
+  .layout { display: block !important; height: auto !important; }
+  .content { overflow: visible !important; height: auto !important; max-height: none !important; padding: 0 !important; }
+  .content.page-enter > *, .content.page-enter .content-inner > *, .content.page-enter .landing-grid > * { animation: none !important; }
+
+  /* Printing a prepared set of topics */
+  html[data-print-look="paper"], html[data-print-look="paper"] body { background: #fff !important; }
+  body.printing > *:not(#printArea) { display: none !important; }
+  body.printing #printArea { display: block !important; }
+  #printArea { font-family: var(--font-body); color: var(--text-primary); }
+  #printArea, #printArea * { animation: none !important; transition: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+
+  #printArea .print-topic { break-after: page; page-break-after: always; }
+  #printArea .print-topic:last-child { break-after: auto; page-break-after: auto; }
+  #printArea[data-flow="continuous"] .print-topic { break-after: auto; page-break-after: auto; margin-bottom: 14mm; }
+  #printArea .content-inner { max-width: none !important; width: 100%; margin: 0 !important; padding: 0 !important; opacity: 1 !important; transform: none !important; }
+  #printArea .print-meta { margin-bottom: 6mm; font-family: var(--font-mono); font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+  #printArea .print-foot { margin-top: 8mm; padding-top: 3mm; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 8pt; color: var(--text-tertiary); }
+
+  /* Things that only make sense on screen */
+  #printArea .code-copy-btn, #printArea .sq-toolbar, #printArea .related-grid, #printArea .unit-nav, #printArea .topic-print-btn { display: none !important; }
+  #printArea .sq-item > summary { list-style: none; }
+  #printArea .sq-item > summary::-webkit-details-marker { display: none; }
+
+  /* Long lines wrap instead of being cut off */
+  #printArea .code-block, #printArea pre { white-space: pre-wrap !important; word-break: break-word; overflow: visible !important; max-height: none !important; }
+  #printArea .code-block-wrap, #printArea .ref-table-wrap { overflow: visible !important; }
+
+  /* Sensible page breaks */
+  #printArea .section-label { break-after: avoid; page-break-after: avoid; }
+  #printArea .keypoints-list li, #printArea .pitfalls-list li, #printArea .sq-item, #printArea .practice-box,
+  #printArea tr, #printArea .print-resources li, #printArea .print-notes { break-inside: avoid; page-break-inside: avoid; }
+  #printArea thead { display: table-header-group; }
+
+  /* My notes and resources */
+  #printArea .print-notes { white-space: pre-wrap; overflow-wrap: anywhere; padding: 4mm 5mm; border: 1px solid var(--border); border-radius: 6px; background: rgba(255,255,255,0.05); font-size: 10.5pt; line-height: 1.6; }
+  #printArea .print-resources { margin: 0; padding: 0; list-style: none; }
+  #printArea .print-resources li { padding: 2mm 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+  #printArea .pr-url { font-family: var(--font-mono); font-size: 8.5pt; color: var(--text-tertiary); }
+  #printArea .pr-image img { display: block; max-width: 70mm; max-height: 55mm; margin-bottom: 1mm; border-radius: 4px; }
+
+  /* Paper-friendly look: white page, dark text, same layout */
+  #printArea[data-look="paper"] {
+    --text-primary: #14231b; --text-secondary: #33463c; --text-tertiary: #5a6c62;
+    --border: #c7d4cc; --border-top: #c7d4cc;
+    --accent: #0e7a43; --accent-soft: rgba(14,122,67,0.10); --accent-warm: #9a5b00;
+    background: #fff; color: #14231b;
+  }
+  #printArea[data-look="paper"] .topic-header h1 { color: #0b1a12; }
+  #printArea[data-look="paper"] .code-block-wrap, #printArea[data-look="paper"] .practice-box, #printArea[data-look="paper"] .sq-item,
+  #printArea[data-look="paper"] .print-notes, #printArea[data-look="paper"] .ref-table-wrap { background: #f3f7f4 !important; }
+  #printArea[data-look="paper"] .tok-number { color: #1f5f9a; }
+}
+
+/* Print dialog: the buttons stay in view while the options scroll */
+.pr-actions {
+  position: sticky; bottom: -1px; z-index: 2;
+  margin: 8px -4px -4px -4px; padding: 12px 4px 6px 4px;
+  background: linear-gradient(to top, rgba(14, 38, 27, 0.98) 72%, rgba(14, 38, 27, 0));
+}
+.pr-units { max-height: 200px; }
+.pr-label { font-weight: 600; }

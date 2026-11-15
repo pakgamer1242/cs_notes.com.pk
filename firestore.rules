@@ -46,6 +46,22 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+    // ---------- Profile photo: one small picture per person, only they can see or change it ----------
+
+    match /users/{uid}/meta/{docId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && docId == 'profile'
+        && request.resource.data.keys().hasOnly(['avatar', 'updatedAtMs'])
+        && request.resource.data.avatar is string
+        && request.resource.data.avatar.size() <= 40000
+        && (request.resource.data.avatar == ''
+            || request.resource.data.avatar.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))
+        && request.resource.data.updatedAtMs is number;
+    }
+
     // ---------- Admins list: you can only check whether YOU are on it ----------
 
     match /admins/{uid} {

@@ -213,7 +213,33 @@
           snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
           await batch.commit();
         }
+        try { await F.deleteDoc(F.doc(db, "users", user.uid, "meta", "profile")); } catch (e) { /* nothing stored */ }
         await A.deleteUser(user);
+      },
+
+      // ---- Profile photo (one small document per person) ----
+
+      async fetchProfile() {
+        await load();
+        const snap = await F.getDoc(F.doc(db, "users", auth.currentUser.uid, "meta", "profile"));
+        if (!snap.exists()) return null;
+        const d = snap.data();
+        return { avatar: typeof d.avatar === "string" ? d.avatar : "", updatedAtMs: Number(d.updatedAtMs) || 0 };
+      },
+
+      async saveProfile(p) {
+        await load();
+        await F.setDoc(F.doc(db, "users", auth.currentUser.uid, "meta", "profile"), { avatar: p.avatar || "", updatedAtMs: Date.now() });
+      },
+
+      // ---- Password ----
+
+      async changePassword(current, next) {
+        await load();
+        const u = auth.currentUser;
+        if (!u || !u.email) { const e = new Error("signed out"); e.code = "auth/requires-recent-login"; throw e; }
+        await A.reauthenticateWithCredential(u, A.EmailAuthProvider.credential(u.email, current));
+        await A.updatePassword(u, next);
       },
 
       // ---- Complaint box ----
@@ -292,7 +318,7 @@
   let authChain = Promise.resolve();
   let adminFlag = false;       // true when the signed-in person is listed as an admin
   let cloudReadySent = false;
-  const sync = { busy: false, again: false, error: "", offline: false, lastOkMs: 0, lastRunMs: 0, timer: null };
+  const sync = { busy: false, again: false, error: "", offline: false, lastOkMs: 0, lastRunMs: 0, timer: null, photoNote: "" };
 
   const accountProfileId = uid => "acct_" + uid;
   const META_KEY = uid => "cs-notes-sync-" + uid + "-v1";
@@ -310,10 +336,10 @@
     try {
       const m = JSON.parse(localStorage.getItem(META_KEY(uid)) || "null");
       if (m && typeof m === "object") {
-        return { pulledUntil: Number(m.pulledUntil) || 0, hashes: m.hashes || {}, edited: m.edited || {}, seen: m.seen || {} };
+        return { pulledUntil: Number(m.pulledUntil) || 0, hashes: m.hashes || {}, edited: m.edited || {}, seen: m.seen || {}, avatarDirty: !!m.avatarDirty };
       }
     } catch (e) { /* start fresh */ }
-    return { pulledUntil: 0, hashes: {}, edited: {}, seen: {} };
+    return { pulledUntil: 0, hashes: {}, edited: {}, seen: {}, avatarDirty: false };
   }
 
   function saveMeta() {
@@ -496,6 +522,56 @@
     sync.timer = setTimeout(runSync, offline ? 30000 : 60000);
   }
 
+  /* ---------- Profile photo sync ---------- */
+
+  function accountProfile() { return user ? profiles.find(x => x.id === accountProfileId(user.uid)) : null; }
+
+  function photoProblem(e) {
+    return e && e.code === "permission-denied"
+      ? "Your photo is saved on this device, but the cloud refused it (the security rules need updating)."
+      : "Your photo is saved on this device and will sync when you're back online.";
+  }
+
+  function applyRemoteProfile(remote) {
+    const p = accountProfile();
+    if (!p) return;
+    const fromCloud = remote && validAvatar(remote.avatar) ? remote.avatar : "";   // only a small, plain picture is accepted
+    if ((p.avatar || "") === fromCloud) return;
+    if (fromCloud) p.avatar = fromCloud; else delete p.avatar;
+    saveProfilesList();
+    renderProfileChip();
+    refreshAccountUi();
+  }
+
+  async function pushAvatarNow() {
+    const p = accountProfile();
+    if (!p || typeof adapter.saveProfile !== "function") return;
+    await adapter.saveProfile({ avatar: validAvatar(p.avatar) ? p.avatar : "" });
+    meta.avatarDirty = false;
+    saveMeta();
+  }
+
+  async function syncProfile() {
+    if (!user || !meta || typeof adapter.fetchProfile !== "function") return;
+    if (meta.avatarDirty) { await pushAvatarNow(); return; }     // a change made here is waiting to go up
+    applyRemoteProfile(await adapter.fetchProfile());
+  }
+
+  async function onAvatarChanged(e) {
+    const p = accountProfile();
+    if (!p || !meta || !e.detail || e.detail.profileId !== p.id) return;
+    meta.avatarDirty = true;
+    saveMeta();
+    sync.photoNote = "";
+    try {
+      if (navigator.onLine === false) { const off = new Error("offline"); off.code = "csn/offline"; throw off; }
+      await withTimeout(pushAvatarNow(), 20000);
+    } catch (err) {
+      sync.photoNote = photoProblem(err);
+    }
+    setChipSync();
+  }
+
   async function runSync() {
     if (!user || !meta) return;
     if (sync.busy) { sync.again = true; return; }
@@ -504,6 +580,12 @@
     setChipSync();
     try {
       if (navigator.onLine === false) { const off = new Error("offline"); off.code = "csn/offline"; throw off; }
+      try {
+        await syncProfile();
+        sync.photoNote = "";
+      } catch (pe) {
+        sync.photoNote = photoProblem(pe);            // never stops the notes from syncing
+      }
       await pull();
       await push();
       sync.lastOkMs = Date.now();
@@ -543,6 +625,11 @@
   }
 
   function statusText() {
+    const base = baseStatusText();
+    return sync.photoNote && base ? base + " " + sync.photoNote : base;
+  }
+
+  function baseStatusText() {
     if (!user || !meta) return "";
     const n = dirtyKeys().length;
     if (sync.busy) return "Syncing…";
@@ -653,6 +740,7 @@
     user = null;
     meta = null;
     adminFlag = false;
+    sync.photoNote = "";
     clearTimeout(sync.timer);
     sync.busy = false; sync.again = false; sync.error = ""; sync.offline = false; sync.lastOkMs = 0;
 
@@ -738,7 +826,9 @@
     return `
       <div class="acct-card acct-card-on">
         <div class="acct-head">
-          <span class="acct-avatar" style="background:${escAttr(p.color || "#55D68F")}">${esc(displayNameOf(user).charAt(0).toUpperCase())}</span>
+          <button type="button" class="acct-avatar-btn" data-acct="photo" aria-label="Change profile photo" title="Change profile photo">
+            ${avatarHtml(accountProfile() || p, "acct-avatar", true)}<span class="acct-avatar-edit" aria-hidden="true">${ICON_CAMERA}</span>
+          </button>
           <div class="acct-who"><strong>${esc(displayNameOf(user))}</strong><span>${esc(user.email)}</span></div>
         </div>
         ${verify}
@@ -746,6 +836,7 @@
         <div class="acct-actions">
           ${adminFlag ? '<button type="button" class="fb-btn fb-btn-primary" data-acct="admin">Complaints panel</button>' : ""}
           <button type="button" class="fb-btn" data-acct="sync-now">Sync now</button>
+          <button type="button" class="fb-btn" data-acct="password">Change password</button>
           <button type="button" class="fb-btn" data-acct="sign-out">Sign out</button>
         </div>
         <details class="acct-more">
@@ -813,6 +904,11 @@
     if (action === "signin" || action === "signup") {
       closeProfileSwitcher();
       openAuth(action);
+    } else if (action === "photo") {
+      if (user) changeProfilePhoto(accountProfileId(user.uid));   // opens straight from the click so the file chooser is allowed
+    } else if (action === "password") {
+      closeProfileSwitcher();
+      openAuth("password");
     } else if (action === "sync-now") {
       runSync();
     } else if (action === "sign-out") {
@@ -854,6 +950,50 @@
     });
     authPanel.addEventListener("click", onAuthClick);
     authPanel.addEventListener("submit", onAuthSubmit);
+    authPanel.addEventListener("input", e => { if (e.target.id === "acNew") updateMeter(); });
+    authPanel.addEventListener("change", e => {
+      if (e.target.id !== "acShowAll") return;
+      ["acCur", "acNew", "acNew2"].forEach(id => { const el = $(id); if (el) el.type = e.target.checked ? "text" : "password"; });
+    });
+  }
+
+  function strengthOf(pw) {
+    let s = 0;
+    if (pw.length >= 8) s++;
+    if (pw.length >= 12) s++;
+    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+    if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) s++;
+    return s;
+  }
+
+  function updateMeter() {
+    const pw = $("acNew") ? $("acNew").value : "";
+    const s = pw.length < 8 ? 0 : Math.max(1, strengthOf(pw));
+    const bar = $("acMeter");
+    if (bar) { bar.dataset.level = String(s); bar.firstChild.style.width = (pw ? Math.max(10, s * 25) : 0) + "%"; }
+    const hint = $("acHint");
+    if (hint) hint.textContent = !pw ? "At least 8 characters. A longer phrase is stronger." :
+      ["Too short: use at least 8 characters.", "Weak", "Okay", "Good", "Strong"][s];
+  }
+
+  async function submitPassword() {
+    const cur = $("acCur").value, next = $("acNew").value, again = $("acNew2").value;
+    ["acCur", "acNew", "acNew2"].forEach(id => { const el = $(id); if (el) el.removeAttribute("aria-invalid"); });
+    if (!cur) { showAuthError("Enter your current password.", "acCur"); return; }
+    if (next.length < 8) { showAuthError("Choose a new password with at least 8 characters.", "acNew"); return; }
+    if (next === cur) { showAuthError("Your new password has to be different from the current one.", "acNew"); return; }
+    if (again !== next) { showAuthError("The two new passwords don't match.", "acNew2"); return; }
+    setAuthBusy(true, "Changing…");
+    try {
+      await adapter.changePassword(cur, next);
+      authUi.view = "passworddone";
+      renderAuth();
+    } catch (err) {
+      const wrong = !!(err && /^auth\/(invalid-credential|wrong-password|invalid-login-credentials)$/.test(err.code || ""));
+      showAuthError(wrong ? "Your current password isn't right." : friendlyError(err), wrong ? "acCur" : "acNew");
+    } finally {
+      if (authUi.view === "password") setAuthBusy(false); else authUi.busy = false;
+    }
   }
 
   function authHeader(title) {
@@ -905,6 +1045,28 @@
       return `${authHeader("Check your email")}
         <p class="fb-intro">If an account exists for <strong>${esc(authUi.email)}</strong>, a reset link is on its way. It can take a minute, and it may land in your spam folder.</p>
         <div class="acct-links"><button type="button" class="acct-link" data-ac="view-signin">Back to sign in</button></div>`;
+    }
+    if (v === "password") {
+      return `${authHeader("Change password")}
+        <p class="fb-intro">Enter your current password, then choose a new one. Profiles that only live on this device have no password.</p>
+        <form id="acForm" novalidate>
+          <div class="fb-field"><label class="fb-label" for="acCur">Current password</label>
+            <input class="fb-input" id="acCur" type="password" autocomplete="current-password"></div>
+          <div class="fb-field"><label class="fb-label" for="acNew">New password</label>
+            <input class="fb-input" id="acNew" type="password" autocomplete="new-password" aria-describedby="acHint">
+            <div class="acct-meter" id="acMeter" data-level="0" aria-hidden="true"><i></i></div>
+            <div class="fb-meta" id="acHint" style="text-align:left" aria-live="polite">At least 8 characters. A longer phrase is stronger.</div></div>
+          <div class="fb-field"><label class="fb-label" for="acNew2">Repeat the new password</label>
+            <input class="fb-input" id="acNew2" type="password" autocomplete="new-password"></div>
+          <label class="acct-showpw"><input type="checkbox" id="acShowAll"> Show passwords</label>
+          <p class="fb-error" id="acError" role="alert"></p>
+          <button type="submit" class="study-start-btn" id="acSubmit">Change password</button>
+        </form>`;
+    }
+    if (v === "passworddone") {
+      return `${authHeader("Password changed")}
+        <p class="fb-intro">Your password has been changed. Use the new one the next time you sign in. Your other devices may ask you to sign in again.</p>
+        <div class="acct-actions"><button type="button" class="fb-btn fb-btn-primary" data-ac="close">Done</button></div>`;
     }
     if (v === "delete") {
       return `${authHeader("Delete account")}
@@ -1040,6 +1202,7 @@
     if (e.target.id !== "acForm") return;
     e.preventDefault();
     if (authUi.busy) return;
+    if (authUi.view === "password") { submitPassword(); return; }
     const view = authUi.view;
     const emailEl = $("acEmail");
     const email = emailEl ? emailEl.value.trim() : "";
@@ -1105,6 +1268,7 @@
   };
 
   document.addEventListener("csn:profile-panel", renderAccountSlot);
+  document.addEventListener("csn:avatar-changed", onAvatarChanged);
   document.addEventListener("csn:saved", onLocalSave);
   document.addEventListener("csn:cleared", onLocalSave);
   window.addEventListener("online", () => { if (user) runSync(); });
