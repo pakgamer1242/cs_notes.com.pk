@@ -32,6 +32,11 @@
   const pointers = new Map();
   let pinch = null;
 
+  function stylesCurrent() {
+    return parseInt(getComputedStyle(document.documentElement).getPropertyValue("--csn-ui"), 10) >= 3;
+  }
+  const STALE_HTML = '<p role="alert" style="margin:0 0 12px;padding:10px 12px;border:1px solid #C98A2E;border-radius:8px;background:rgba(201,138,46,0.16);color:#f3d9a8;font-size:14px;line-height:1.5"><strong>This site\'s style.css is older than its scripts.</strong> The photo window would look broken, so it is switched off. Upload the newest style.css to GitHub, then refresh with Ctrl+F5.</p>';
+
   /* ---------- Opening and closing ---------- */
 
   function pick(opts) {
@@ -126,11 +131,12 @@
         <button class="study-close-btn" type="button" data-av="cancel" aria-label="Close">&times;</button>
       </div>
       <div class="av-choose">
+        ${stylesCurrent() ? "" : STALE_HTML}
         ${big}
         <p class="fb-intro">Pick a picture, then move and zoom it into the round frame. ${ui.synced ? "It's saved with your account, so it follows you to your other devices." : "It stays on this device."}</p>
         <p class="fb-error${ui.error ? " show" : ""}" id="avError" role="alert">${esc(ui.error)}</p>
         <div class="av-actions">
-          <button type="button" class="fb-btn fb-btn-primary" data-av="choose">Choose a photo</button>
+          <button type="button" class="fb-btn fb-btn-primary" data-av="choose"${stylesCurrent() ? "" : " disabled"}>Choose a photo</button>
           ${ui.current ? '<button type="button" class="fb-btn fb-btn-danger" data-av="remove">Remove photo</button>' : ""}
           <button type="button" class="fb-btn" data-av="cancel">Cancel</button>
         </div>

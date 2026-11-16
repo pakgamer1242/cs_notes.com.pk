@@ -2927,3 +2927,6 @@ body.boot .fb-fab       { animation: popIn 520ms var(--ease-spring) 800ms backwa
 }
 .pr-units { max-height: 200px; }
 .pr-label { font-weight: 600; }
+
+/* Version marker: print.js and avatar.js check this to notice when style.css is older than the scripts */
+:root { --csn-ui: 3; }

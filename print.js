@@ -31,6 +31,14 @@
   let pickSection = null;
   const chosen = new Set();                 // "section|unit|topic"
 
+  /* ---------- Is style.css as new as this script? ----------
+     Printing only looks right with the matching style.css. If someone uploaded the new scripts but kept an old
+     style.css, say so plainly instead of producing a broken printout. */
+  function stylesCurrent() {
+    return parseInt(getComputedStyle(document.documentElement).getPropertyValue("--csn-ui"), 10) >= 3;
+  }
+  const STALE_HTML = '<p role="alert" style="margin:0 0 14px;padding:10px 12px;border:1px solid #C98A2E;border-radius:8px;background:rgba(201,138,46,0.16);color:#f3d9a8;font-size:14px;line-height:1.5"><strong>This site\'s style.css is older than its scripts.</strong> Printing would look broken, so it is switched off. Upload the newest style.css to GitHub, then refresh with Ctrl+F5.</p>';
+
   /* ---------- Remembered choices ---------- */
 
   function loadOptions() {
@@ -148,7 +156,7 @@
   }
 
   window.addEventListener("beforeprint", () => {
-    if ($("printArea")) return;                      // the dialog already prepared it
+    if ($("printArea") || !stylesCurrent()) return;  // already prepared by the dialog, or the stylesheet is too old to print properly
     const cur = currentSelection();
     if (cur) buildPrintArea([cur], opts);            // Ctrl+P on a topic page prints that topic, nicely
   });
@@ -156,6 +164,7 @@
 
   function run() {
     const items = collect();
+    if (!stylesCurrent()) return;
     if (!items.length) { showError("Choose at least one topic to print."); return; }
     saveOptions();
     close();
@@ -255,6 +264,7 @@
         <h2 class="study-title" id="prTitle" tabindex="-1">Print notes</h2>
         <button class="study-close-btn" type="button" data-pr="cancel" aria-label="Close">&times;</button>
       </div>
+      ${stylesCurrent() ? "" : STALE_HTML}
       <fieldset class="pr-group">
         <legend class="fb-label">What to print</legend>
         ${radio("topic", cur ? `This topic <em>${esc(cur.topic.title)}</em>` : "This topic <em>(open a topic first)</em>", !cur)}
@@ -282,7 +292,7 @@
       <p class="fb-error" id="prError" role="alert"></p>
       <p class="fb-privacy" id="prCount" role="status" aria-live="polite">${count} topic${count === 1 ? "" : "s"} selected. In the print window, choose "Save as PDF" to keep a file, and turn on "Background graphics" if the colours don't show.</p>
       <div class="pr-actions">
-        <button type="button" class="study-start-btn" data-pr="print">Print / save as PDF</button>
+        <button type="button" class="study-start-btn" data-pr="print"${stylesCurrent() ? "" : " disabled"}>Print / save as PDF</button>
         <button type="button" class="fb-btn" data-pr="cancel">Cancel</button>
       </div>`;
     const back = restore && panel.querySelector(restore);
