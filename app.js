@@ -245,7 +245,7 @@ function applyLayoutPrefs() {
 
 /* On phones the sidebar is a slide-in menu that always starts closed and is
    never saved. On bigger screens it keeps the saved minimize/restore behaviour. */
-const mobileQuery = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 760px)") : null;
+const mobileQuery = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 760px), (max-height: 500px) and (pointer: coarse)") : null;
 const drawerScrim = document.getElementById("drawerScrim");
 
 function isMobileLayout() { return !!(mobileQuery && mobileQuery.matches); }

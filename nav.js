@@ -19,6 +19,7 @@
   if (typeof SECTIONS === "undefined" || typeof renderTopic !== "function" || typeof renderLanding !== "function") return;
 
   const RESUME_KEY = "cs-notes-resume-v1";
+  const DISMISS_KEY = "cs-notes-resume-dismissed-v1";
   const SITE = "CS Notes";
   const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   const reduced = () => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -77,11 +78,31 @@
     document.title = SECTIONS[current.section].label + " — " + SITE;
   }
 
+  // Other parts of the page (the phone's top bar and bottom navigation) listen for this.
+  function pageInfo() {
+    const sec = SECTIONS[current.section];
+    const f = current.topic ? lookup(current.section, current.dir, current.topic) : null;
+    return {
+      section: current.section,
+      sectionLabel: sec.label,
+      reading: !!f,
+      title: f ? f.topic.title : sec.label,
+      eyebrow: f ? sec.label + " \u00b7 " + f.dir.name.replace(/-/g, " ") : "CS Notes",
+    };
+  }
+  function announcePage() {
+    document.dispatchEvent(new CustomEvent("csn:page", { detail: pageInfo() }));
+  }
+  window.CSNPage = { info: pageInfo };
+
   /* ---------- Resume ---------- */
 
   function rememberTopic() {
     if (!current.topic) return;
-    try { localStorage.setItem(RESUME_KEY, JSON.stringify({ section: current.section, dir: current.dir, topic: current.topic })); } catch (e) {}
+    try {
+      localStorage.setItem(RESUME_KEY, JSON.stringify({ section: current.section, dir: current.dir, topic: current.topic }));
+      localStorage.removeItem(DISMISS_KEY);          // reading something brings the suggestion back next time
+    } catch (e) {}
   }
 
   function readResume() {
@@ -91,19 +112,89 @@
     } catch (e) { return null; }
   }
 
+  const resumeKey = r => r.section + "|" + r.dir + "|" + r.topic;
+
   function addResumeCard() {
     const r = readResume();
     if (!r) return;
+    try { if (localStorage.getItem(DISMISS_KEY) === resumeKey(r)) return; } catch (e) {}
     const f = lookup(r.section, r.dir, r.topic);
-    const a = document.createElement("a");
-    a.className = "resume-card";
-    a.href = buildHash(r);
-    a.innerHTML =
-      '<span class="rs-text"><span class="rs-kicker">Continue where you left off</span>' +
-      '<span class="rs-title">' + escapeHtml(f.topic.title) + '</span>' +
-      '<span class="rs-meta">' + escapeHtml(SECTIONS[r.section].label) + " · " + escapeHtml(f.dir.name) + '</span></span>' +
-      '<span class="rs-arrow" aria-hidden="true">&rarr;</span>';
-    contentEl.insertBefore(a, contentEl.firstChild);
+    const card = document.createElement("div");
+    card.className = "resume-card";
+    card.setAttribute("role", "group");
+    card.setAttribute("aria-label", "Continue where you left off");
+    card.innerHTML =
+      '<a class="rs-link" href="' + buildHash(r) + '">' +
+        '<span class="rs-text"><span class="rs-kicker">Continue where you left off</span>' +
+        '<span class="rs-title">' + escapeHtml(f.topic.title) + '</span>' +
+        '<span class="rs-meta">' + escapeHtml(SECTIONS[r.section].label) + " \u00b7 " + escapeHtml(f.dir.name) + '</span></span>' +
+        '<span class="rs-arrow" aria-hidden="true">&rarr;</span>' +
+      '</a>' +
+      '<button type="button" class="rs-close" aria-label="Dismiss \u201cContinue where you left off\u201d"><span aria-hidden="true">&times;</span></button>' +
+      '<span class="rs-hint" aria-hidden="true">Swipe to dismiss</span>';
+    contentEl.insertBefore(card, contentEl.firstChild);
+    card.querySelector(".rs-close").addEventListener("click", () => dismissResume(card, 0, r));
+    wireSwipe(card, r);
+  }
+
+  // Slide (or fade) the card away, close the gap it leaves, and remember that it was dismissed.
+  function dismissResume(card, dir, r) {
+    try { localStorage.setItem(DISMISS_KEY, resumeKey(r)); } catch (e) {}
+    const wasFocused = card.contains(document.activeElement);
+    if (reduced()) { card.remove(); if (wasFocused) focusMainHeading(); return; }
+    const h = card.offsetHeight;
+    card.classList.add("leaving");
+    card.style.transition = "transform 0.3s var(--ease-out), opacity 0.26s var(--ease)";
+    card.style.transform = dir ? "translate3d(" + dir * (card.offsetWidth + 40) + "px,0,0)" : "translate3d(0,-8px,0) scale(0.97)";
+    card.style.opacity = "0";
+    setTimeout(() => {
+      card.style.transition = "height 0.26s var(--ease-out), margin 0.26s var(--ease-out)";
+      card.style.height = h + "px";
+      card.style.overflow = "hidden";
+      void card.offsetHeight;
+      card.style.height = "0px";
+      card.style.marginBottom = "0px";
+      setTimeout(() => card.remove(), 280);
+    }, 220);
+    if (wasFocused) focusMainHeading();
+  }
+
+  // Touch: drag the card sideways and let go; far enough (or quick enough) and it is dismissed.
+  function wireSwipe(card, r) {
+    let id = null, x0 = 0, y0 = 0, dx = 0, t0 = 0, locked = false;
+    card.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "touch" || e.target.closest(".rs-close")) return;
+      id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; t0 = performance.now(); locked = false;
+    });
+    card.addEventListener("pointermove", e => {
+      if (e.pointerId !== id) return;
+      const mx = e.clientX - x0, my = e.clientY - y0;
+      if (!locked) {
+        if (Math.abs(mx) > 8 && Math.abs(mx) > Math.abs(my) * 1.2) { locked = true; try { card.setPointerCapture(id); } catch (err) {} card.classList.add("swiping"); }
+        else if (Math.abs(my) > 10) { id = null; return; }          // it is a scroll, not a swipe
+      }
+      if (locked) {
+        dx = mx;
+        card.style.transition = "none";
+        card.style.transform = "translate3d(" + dx + "px,0,0)";
+        card.style.opacity = String(Math.max(0.25, 1 - Math.abs(dx) / (card.offsetWidth * 0.9)));
+      }
+    });
+    const end = e => {
+      if (e.pointerId !== id) return;
+      id = null;
+      card.classList.remove("swiping");
+      if (!locked) return;
+      const speed = dx / Math.max(1, performance.now() - t0);
+      const far = Math.abs(dx) > card.offsetWidth * 0.3 || (Math.abs(speed) > 0.6 && Math.abs(dx) > 40);
+      card.dataset.swiped = "1";                                       // the tap that ends a drag must not open the topic
+      setTimeout(() => { delete card.dataset.swiped; }, 350);
+      if (far) dismissResume(card, dx < 0 ? -1 : 1, r);
+      else { card.style.transition = "transform 0.28s var(--ease-out), opacity 0.2s var(--ease)"; card.style.transform = ""; card.style.opacity = ""; }
+    };
+    card.addEventListener("pointerup", end);
+    card.addEventListener("pointercancel", end);
+    card.addEventListener("click", e => { if (card.dataset.swiped) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
 
   /* ---------- Hooking the two page-drawing functions ---------- */
@@ -145,6 +236,7 @@
     updateTitle();
     rememberTopic();
     if (changed) { changed = false; enter(); }
+    announcePage();
     navDir = "forward";
     restoreScroll = null;
     onScroll();
@@ -239,17 +331,28 @@
     }, 120);
   }
 
-  let ticking = false;
+  // On a phone the back-to-top button would sit on top of the text, so it only appears while you scroll UP,
+  // and fades away a moment after you stop.
+  const phoneMq = window.matchMedia("(max-width: 760px), (max-height: 500px) and (pointer: coarse)");
+  let lastTop = 0, toTopTimer = null, ticking = false;
   function onScroll() {
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(() => {
       ticking = false;
+      const top = contentEl.scrollTop;
       const max = contentEl.scrollHeight - contentEl.clientHeight;
-      const p = max > 20 ? Math.min(1, contentEl.scrollTop / max) : 0;
+      const p = max > 20 ? Math.min(1, top / max) : 0;
       bar.firstChild.style.transform = "scaleX(" + p.toFixed(4) + ")";
       bar.classList.toggle("on", !!current.topic && max > 240);
-      toTop.classList.toggle("on", contentEl.scrollTop > 700);
+      let show = top > 700;
+      if (phoneMq.matches) {
+        const goingUp = top < lastTop - 6;
+        show = show && goingUp;
+        if (show) { clearTimeout(toTopTimer); toTopTimer = setTimeout(() => toTop.classList.remove("on"), 1800); }
+      }
+      lastTop = top;
+      toTop.classList.toggle("on", show);
     });
   }
   contentEl.addEventListener("scroll", () => { onScroll(); rememberScroll(); }, { passive: true });
@@ -268,7 +371,9 @@
 
   const first = parseHash(location.hash);
   if (first && location.hash.length > 1) applyRoute(first, null);
-  else addResumeCard();         // app.js drew the landing page before this file loaded
+  // app.js drew the landing page before this file loaded, and opening at a landing address (#/reference) draws nothing
+  // new, so add the "continue where you left off" card here when the landing page is what's on screen.
+  if (!current.topic && !contentEl.querySelector(".resume-card")) addResumeCard();
 
   setTimeout(() => document.body.classList.remove("boot"), 1500);
 })();

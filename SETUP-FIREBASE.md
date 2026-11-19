@@ -95,9 +95,15 @@ The complaint form is open to everyone, so someone could send junk. It already h
 
 Upload **all** of these to the same folder on GitHub (replace the old ones):
 
-`index.html`, `style.css`, `app.js`, `nav.js`, `avatar.js`, `print.js`, `feedback.js`, `cloud.js`, `admin.js`, `cloud-config.js` (with your values), `data-reference.js`, `data-grade11.js`, `data-grade12.js`, `questions-grade11.js`, `questions-grade12.js`.
+`index.html`, `style.css`, `app.js`, `nav.js`, `mobile.js`, `avatar.js`, `print.js`, `feedback.js`, `cloud.js`, `admin.js`, `cloud-config.js` (with your values), `data-reference.js`, `data-grade11.js`, `data-grade12.js`, `questions-grade11.js`, `questions-grade12.js`.
 
 `SETUP-FIREBASE.md` and `firestore.rules` are for you: the site doesn't load them, but keep them in the repo if you like. The rules only take effect when you paste them into the Firebase console (step 5b).
+
+## On a phone
+
+- **Layout:** on phones (and phones held sideways) the site uses a top bar (logo, the page's title, search, your profile) and a bottom bar: **Home**, **Browse** (the unit menu, with a section switcher at its top), **Study** and **More** (share this page, print notes, the complaint box). Search opens full screen, and windows slide up as sheets: pull the top of a sheet down to close it.
+- **Back to top** appears only while you scroll up and fades away; tapping the title bar also scrolls to the top.
+- **"Continue where you left off"** can be dismissed: click the cross on a computer, or swipe the card sideways on a touch screen. It comes back after you read something new.
 
 ## Profile photos, password and printing
 

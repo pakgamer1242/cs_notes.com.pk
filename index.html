@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0A2016">
 <title>CS Notes — a CS reference workspace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,7 +10,7 @@
 <!-- Fonts load without holding the page back: if a network blocks or slows Google Fonts, the site still starts at once and uses system fonts until they arrive. -->
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body class="boot">
 
@@ -22,6 +22,14 @@
       <span class="brand-mark">&lt;/&gt;</span>
       <span class="brand-name">CS<strong>Notes</strong></span>
     </div>
+    <!-- Phone-only parts. They stay hidden until mobile.js confirms style.css is new enough, so an old stylesheet can never show them by mistake. -->
+    <div class="m-title m-only" id="mTitle" hidden>
+      <span class="m-eyebrow" id="mEyebrow">CS Notes</span>
+      <span class="m-heading" id="mHeading">CS Reference</span>
+    </div>
+    <button class="m-icon-btn m-only" id="mSearchBtn" type="button" aria-label="Search" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+    </button>
     <div class="navbar-search">
       <input type="text" id="searchInput" placeholder="Search all sections, e.g. dynamic programming..." autocomplete="off">
       <span class="navbar-search-icon">&#8981;</span>
@@ -87,6 +95,15 @@
 
   </div>
 
+  <!-- Phone: bottom navigation -->
+  <nav class="m-nav m-only" id="mNav" aria-label="Main navigation" hidden>
+    <button type="button" class="m-nav-item" data-m="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg><span>Home</span></button>
+    <button type="button" class="m-nav-item" data-m="browse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg><span>Browse</span></button>
+    <button type="button" class="m-nav-item" data-m="study"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg><span>Study</span></button>
+    <button type="button" class="m-nav-item" data-m="more" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/></svg><span>More</span></button>
+  </nav>
+  <div class="m-toast" id="mToast" role="status" aria-live="polite"></div>
+
   <!-- Study mode overlay: quiz + flashcards -->
   <div class="study-overlay" id="studyOverlay" aria-hidden="true">
     <div class="study-panel" id="studyPanel" role="dialog" aria-modal="true" aria-labelledby="studyTitle"></div>
@@ -112,18 +129,19 @@
     <div class="study-panel image-lightbox-panel" id="imagePanel" role="dialog" aria-modal="true" aria-labelledby="imageLightboxTitle"></div>
   </div>
 
-  <script src="data-reference.js?v=3"></script>
-  <script src="data-grade11.js?v=3"></script>
-  <script src="data-grade12.js?v=3"></script>
-  <script src="questions-grade11.js?v=3"></script>
-  <script src="questions-grade12.js?v=3"></script>
-  <script src="app.js?v=3"></script>
-  <script src="nav.js?v=3"></script>
-  <script src="avatar.js?v=3"></script>
-  <script src="print.js?v=3"></script>
-  <script src="feedback.js?v=3"></script>
-  <script src="cloud-config.js?v=3"></script>
-  <script src="cloud.js?v=3"></script>
-  <script src="admin.js?v=3"></script>
+  <script src="data-reference.js?v=4"></script>
+  <script src="data-grade11.js?v=4"></script>
+  <script src="data-grade12.js?v=4"></script>
+  <script src="questions-grade11.js?v=4"></script>
+  <script src="questions-grade12.js?v=4"></script>
+  <script src="app.js?v=4"></script>
+  <script src="nav.js?v=4"></script>
+  <script src="avatar.js?v=4"></script>
+  <script src="print.js?v=4"></script>
+  <script src="mobile.js?v=4"></script>
+  <script src="feedback.js?v=4"></script>
+  <script src="cloud-config.js?v=4"></script>
+  <script src="cloud.js?v=4"></script>
+  <script src="admin.js?v=4"></script>
 </body>
 </html>
