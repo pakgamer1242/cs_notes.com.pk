@@ -2925,7 +2925,7 @@ body.boot .fb-fab       { animation: popIn 520ms var(--ease-spring) 800ms backwa
 .pr-label { font-weight: 600; }
 
 /* Version marker: print.js and avatar.js check this to notice when style.css is older than the scripts */
-:root { --csn-ui: 4; }
+:root { --csn-ui: 5; }
 
 
 /* =========================================================
@@ -2969,6 +2969,8 @@ body.boot .fb-fab       { animation: popIn 520ms var(--ease-spring) 800ms backwa
 
 .m-only { display: none; }
 .m-only[hidden] { display: none !important; }
+/* Added by mobile.js for phone search. Hidden everywhere; the phone rules below show them only while search is open on a phone. */
+.m-search-cancel, .m-search-hint { display: none; }
 
 .m-toast {
   position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 500;
@@ -3040,7 +3042,6 @@ body.boot .fb-fab       { animation: popIn 520ms var(--ease-spring) 800ms backwa
   body.m-search-open .navbar > *:not(.navbar-search) { visibility: hidden; }
   body.m-search-open .navbar-search input { grid-column: 1; grid-row: 1; height: 46px; padding: 0 16px; font-size: 16px; }
   body.m-search-open .navbar-search-icon, body.m-search-open .navbar-search-kbd { display: none; }
-  .m-search-cancel { display: none; }
   body.m-search-open .m-search-cancel {
     display: block; grid-column: 2; grid-row: 1; height: 46px; padding: 0 10px;
     background: none; border: 0; color: var(--accent); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;
@@ -3050,7 +3051,6 @@ body.boot .fb-fab       { animation: popIn 520ms var(--ease-spring) 800ms backwa
     position: static; width: auto; max-height: none; margin: 10px 0 0 0; overflow-y: auto;
     border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
   }
-  .m-search-hint { display: none; }
   body.m-search-open .m-search-hint { display: block; grid-column: 1 / -1; grid-row: 2; margin: 18px 6px; font-size: 13.5px; line-height: 1.6; color: var(--text-tertiary); }
   body.m-search-open .search-results.visible ~ .m-search-hint { display: none; }
 
@@ -3177,3 +3177,10 @@ body.boot .fb-fab       { animation: popIn 520ms var(--ease-spring) 800ms backwa
   .content-inner { padding-top: 16px; }
 }
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) { .m-title { cursor: pointer; } }
+
+/* Narrow desktop windows: give the search box room by dropping the least important parts of the top bar */
+@media (max-width: 1100px) { .navbar-stat { display: none; } }
+@media (max-width: 940px) {
+  .navbar-search-kbd { display: none; }
+  .navbar-search input { padding-right: 40px; }
+}

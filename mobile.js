@@ -17,7 +17,7 @@
   "use strict";
 
   const cssVersion = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--csn-ui"), 10) || 0;
-  if (cssVersion < 4 || typeof SECTIONS === "undefined") return;
+  if (cssVersion < 5 || typeof SECTIONS === "undefined") return;
 
   const PHONE = "(max-width: 760px), (max-height: 500px) and (pointer: coarse)";
   const mq = window.matchMedia(PHONE);
@@ -91,10 +91,12 @@
     const cancel = document.createElement("button");
     cancel.type = "button";
     cancel.className = "m-search-cancel";
+    cancel.hidden = true;                       // shown by the phone stylesheet while search is open; hidden on any other screen
     cancel.textContent = "Cancel";
     navSearch.appendChild(cancel);
     const hint = document.createElement("p");
     hint.className = "m-search-hint";
+    hint.hidden = true;
     hint.textContent = "Search every topic in all three sections, for example \u201cdynamic programming\u201d.";
     navSearch.appendChild(hint);
     cancel.addEventListener("click", closeSearch);
